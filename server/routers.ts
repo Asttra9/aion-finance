@@ -1,4 +1,5 @@
 import { COOKIE_NAME } from "@shared/const";
+import type { TrpcContext } from "./_core/context";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
@@ -400,6 +401,51 @@ export const appRouter = router({
       .input(z.object({ notificationId: z.number() }))
       .mutation(async ({ input }) => {
         return db.markNotificationAsRead(input.notificationId);
+      }),
+  }),
+
+  // ===== REPORTS =====
+  reports: router({
+    list: protectedProcedure
+      .input(z.object({ clientId: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const client = await db.getClientById(input.clientId);
+        if (!client) {
+          throw new TRPCError({ code: "NOT_FOUND" });
+        }
+
+        if (
+          ctx.user.role === "cliente" &&
+          client.userId !== ctx.user.id
+        ) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+
+        return db.getReportsByClient(input.clientId);
+      }),
+
+    generate: consultorProcedure
+      .input(
+        z.object({
+          clientId: z.number(),
+          month: z.number().min(1).max(12),
+          year: z.number(),
+          reportType: z.enum(["dre", "fluxo_caixa"]),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const client = await db.getClientById(input.clientId);
+        if (!client || client.consultorId !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN" });
+        }
+
+        return db.createReport({
+          clientId: input.clientId,
+          month: new Date(input.year, input.month - 1, 1),
+          reportType: input.reportType,
+          fileKey: `reports/${input.clientId}/${input.year}-${String(input.month).padStart(2, "0")}-${input.reportType}.pdf`,
+          fileUrl: "",
+        });
       }),
   }),
 });

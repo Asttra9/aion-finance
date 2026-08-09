@@ -367,3 +367,25 @@ export async function markNotificationAsRead(notificationId: number) {
     .set({ read: true })
     .where(eq(notifications.id, notificationId));
 }
+
+
+// ===== REPORTS =====
+
+export async function getReportsByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .select()
+    .from(financialReports)
+    .where(eq(financialReports.clientId, clientId));
+}
+
+export async function createReport(
+  data: typeof financialReports.$inferInsert
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.insert(financialReports).values(data);
+}

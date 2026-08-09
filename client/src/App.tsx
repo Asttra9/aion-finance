@@ -4,6 +4,11 @@ import NotFound from "@/pages/NotFound";
 import Home from "@/pages/Home";
 import Clientes from "@/pages/Clientes";
 import Dashboard from "@/pages/Dashboard";
+import Transacoes from "@/pages/Transacoes";
+import ContasPagar from "@/pages/ContasPagar";
+import ContasReceber from "@/pages/ContasReceber";
+import Relatorios from "@/pages/Relatorios";
+import MeiWorkflow from "@/pages/MeiWorkflow";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -36,6 +41,11 @@ function Router() {
       <Route path="/clientes" component={Clientes} />
       <Route path="/clientes/:id/dashboard" component={Dashboard} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/transacoes" component={Transacoes} />
+      <Route path="/contas-pagar" component={ContasPagar} />
+      <Route path="/contas-receber" component={ContasReceber} />
+      <Route path="/relatorios" component={Relatorios} />
+      <Route path="/mei-workflow" component={MeiWorkflow} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
