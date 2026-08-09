@@ -1,11 +1,22 @@
-import { eq } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
-import { ENV } from './_core/env';
+import {
+  InsertUser,
+  users,
+  clients,
+  transactions,
+  accountsPayable,
+  accountsReceivable,
+  meiWorkflow,
+  financialReports,
+  fileUploads,
+  notifications,
+  transactionCategories,
+} from "../drizzle/schema";
+import { ENV } from "./_core/env";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -56,8 +67,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -84,9 +95,275 @@ export async function getUserByOpenId(openId: string) {
     return undefined;
   }
 
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  const result = await db
+    .select()
+    .from(users)
+    .where(eq(users.openId, openId))
+    .limit(1);
 
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// ===== CLIENT QUERIES =====
+
+export async function getClientsByConsultor(consultorId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(clients)
+    .where(eq(clients.consultorId, consultorId));
+}
+
+export async function getClientById(clientId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(clients)
+    .where(eq(clients.id, clientId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createClient(data: typeof clients.$inferInsert) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const result = await db.insert(clients).values(data);
+  return result;
+}
+
+export async function updateClient(
+  clientId: number,
+  data: Partial<typeof clients.$inferInsert>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.update(clients).set(data).where(eq(clients.id, clientId));
+}
+
+// ===== TRANSACTION QUERIES =====
+
+export async function getTransactionsByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(transactions)
+    .where(eq(transactions.clientId, clientId))
+    .orderBy(desc(transactions.date));
+}
+
+export async function createTransaction(
+  data: typeof transactions.$inferInsert
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.insert(transactions).values(data);
+}
+
+export async function getTransactionCategories(consultorId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(transactionCategories)
+    .where(eq(transactionCategories.consultorId, consultorId));
+}
+
+export async function createTransactionCategory(
+  data: typeof transactionCategories.$inferInsert
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.insert(transactionCategories).values(data);
+}
+
+// ===== ACCOUNTS PAYABLE QUERIES =====
+
+export async function getAccountsPayableByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(accountsPayable)
+    .where(eq(accountsPayable.clientId, clientId))
+    .orderBy(desc(accountsPayable.dueDate));
+}
+
+export async function createAccountPayable(
+  data: typeof accountsPayable.$inferInsert
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.insert(accountsPayable).values(data);
+}
+
+export async function updateAccountPayable(
+  apId: number,
+  data: Partial<typeof accountsPayable.$inferInsert>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.update(accountsPayable).set(data).where(eq(accountsPayable.id, apId));
+}
+
+// ===== ACCOUNTS RECEIVABLE QUERIES =====
+
+export async function getAccountsReceivableByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(accountsReceivable)
+    .where(eq(accountsReceivable.clientId, clientId))
+    .orderBy(desc(accountsReceivable.dueDate));
+}
+
+export async function createAccountReceivable(
+  data: typeof accountsReceivable.$inferInsert
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.insert(accountsReceivable).values(data);
+}
+
+export async function updateAccountReceivable(
+  arId: number,
+  data: Partial<typeof accountsReceivable.$inferInsert>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .update(accountsReceivable)
+    .set(data)
+    .where(eq(accountsReceivable.id, arId));
+}
+
+// ===== MEI WORKFLOW QUERIES =====
+
+export async function getMeiWorkflowByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(meiWorkflow)
+    .where(eq(meiWorkflow.clientId, clientId))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createMeiWorkflow(
+  data: typeof meiWorkflow.$inferInsert
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.insert(meiWorkflow).values(data);
+}
+
+export async function updateMeiWorkflow(
+  clientId: number,
+  data: Partial<typeof meiWorkflow.$inferInsert>
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .update(meiWorkflow)
+    .set(data)
+    .where(eq(meiWorkflow.clientId, clientId));
+}
+
+// ===== FINANCIAL REPORTS QUERIES =====
+
+export async function getFinancialReportsByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(financialReports)
+    .where(eq(financialReports.clientId, clientId))
+    .orderBy(desc(financialReports.month));
+}
+
+export async function createFinancialReport(
+  data: typeof financialReports.$inferInsert
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.insert(financialReports).values(data);
+}
+
+// ===== FILE UPLOADS QUERIES =====
+
+export async function getFileUploadsByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(fileUploads)
+    .where(eq(fileUploads.clientId, clientId))
+    .orderBy(desc(fileUploads.createdAt));
+}
+
+export async function createFileUpload(
+  data: typeof fileUploads.$inferInsert
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.insert(fileUploads).values(data);
+}
+
+// ===== NOTIFICATIONS QUERIES =====
+
+export async function getNotificationsByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(notifications)
+    .where(eq(notifications.clientId, clientId))
+    .orderBy(desc(notifications.createdAt));
+}
+
+export async function createNotification(
+  data: typeof notifications.$inferInsert
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db.insert(notifications).values(data);
+}
+
+export async function markNotificationAsRead(notificationId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .update(notifications)
+    .set({ read: true })
+    .where(eq(notifications.id, notificationId));
+}
