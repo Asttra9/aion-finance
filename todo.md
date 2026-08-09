@@ -21,28 +21,28 @@
 - [x] Implementar visão semanal de fluxo de caixa
 - [x] Criar página de listagem de clientes
 - [x] Criar landing page com features
-- [ ] Criar testes do dashboard
+- [x] Criar testes do dashboard
 
 ## Fase 4: Conciliação Bancária
-- [ ] Criar tabelas para transações e categorias
-- [ ] Implementar parser OFX
-- [ ] Criar interface de importação de extratos
-- [ ] Implementar categorização de entradas/saídas
-- [ ] Implementar separação pessoal/empresarial
+- [x] Criar tabelas para transações e categorias
+- [x] Implementar parser OFX
+- [x] Criar interface de importação de extratos
+- [x] Implementar categorização de entradas/saídas
+- [x] Implementar separação pessoal/empresarial
 - [ ] Criar testes de importação OFX
 
 ## Fase 5: Contas a Pagar/Receber e Relatórios
-- [ ] Criar tabelas de contas a pagar/receber
-- [ ] Implementar CRUD de contas
-- [ ] Implementar sistema de alertas de vencimento
-- [ ] Criar gerador de relatórios PDF (Fluxo de Caixa, DRE)
+- [x] Criar tabelas de contas a pagar/receber
+- [x] Implementar CRUD de contas
+- [x] Implementar sistema de alertas de vencimento
+- [x] Criar gerador de relatórios PDF (Fluxo de Caixa, DRE)
 - [ ] Implementar layout consultivo profissional
 - [ ] Implementar exportação de relatórios
 - [ ] Criar testes de relatórios
 
 ## Fase 6: Workflow de MEI e Automação
-- [ ] Criar tabela de workflow de abertura de MEI
-- [ ] Implementar checklist de etapas
+- [x] Criar tabela de workflow de abertura de MEI
+- [x] Implementar checklist de etapas
 - [ ] Implementar sistema de lembretes de cobrança
 - [ ] Integrar notificações para clientes
 - [ ] Criar testes de workflow

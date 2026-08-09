@@ -9,6 +9,7 @@ import ContasPagar from "@/pages/ContasPagar";
 import ContasReceber from "@/pages/ContasReceber";
 import Relatorios from "@/pages/Relatorios";
 import MeiWorkflow from "@/pages/MeiWorkflow";
+import Conciliacao from "@/pages/Conciliacao";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -46,6 +47,7 @@ function Router() {
       <Route path="/contas-receber" component={ContasReceber} />
       <Route path="/relatorios" component={Relatorios} />
       <Route path="/mei-workflow" component={MeiWorkflow} />
+      <Route path="/conciliacao" component={Conciliacao} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

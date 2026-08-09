@@ -5,18 +5,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Upload, Download, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, CheckCircle2, AlertCircle } from "lucide-react";
 import { useLocation } from "wouter";
 import AionDashboardLayout from "@/components/AionDashboardLayout";
 import { toast } from "sonner";
 
 export default function Conciliacao() {
   const [location] = useLocation();
-  const clientId = location.includes("/clientes/") 
+  const clientId = location.includes("/clientes/")
     ? parseInt(location.split("/")[2])
     : undefined;
 
@@ -51,37 +50,18 @@ export default function Conciliacao() {
     setImporting(true);
     try {
       const content = await file.text();
-      
-      // Send to backend for parsing
-      const response = await fetch("/api/trpc/ofx.parse", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ content }),
-      });
 
-      if (!response.ok) {
-        throw new Error("Erro ao processar arquivo OFX");
-      }
+      // Parse OFX locally (simplified version)
+      const transactions = parseOFXSimple(content);
 
-      const result = await response.json();
-      
-      if (result.error) {
-        toast.error(`Erro: ${result.error.message}`);
+      if (transactions.length === 0) {
+        toast.error("Nenhuma transação encontrada no arquivo OFX");
         return;
       }
 
-      setImportedTransactions(result.result.transactions || []);
-      setSelectedTransactions(
-        (result.result.transactions || []).map((_: any, i: number) => i)
-      );
-
-      if (result.result.errors && result.result.errors.length > 0) {
-        toast.warning(
-          `${result.result.errors.length} erro(s) ao processar arquivo`
-        );
-      }
+      setImportedTransactions(transactions);
+      setSelectedTransactions(transactions.map((_, i) => i));
+      toast.success(`${transactions.length} transação(ões) encontrada(s)`);
     } catch (error) {
       toast.error(
         `Erro ao ler arquivo: ${error instanceof Error ? error.message : "desconhecido"}`
@@ -92,6 +72,67 @@ export default function Conciliacao() {
         fileInputRef.current.value = "";
       }
     }
+  };
+
+  const parseOFXSimple = (content: string) => {
+    const transactions: any[] = [];
+
+    // Extract STMTTRN blocks
+    const tranMatches = content.match(/<STMTTRN>[\s\S]*?<\/STMTTRN>/g) || [];
+
+    for (const tranMatch of tranMatches) {
+      try {
+        // Extract date
+        let dateMatch = tranMatch.match(/<DTPOSTED>(\d{8})/);
+        if (!dateMatch) {
+          dateMatch = tranMatch.match(/<TRNDATE>(\d{8})/);
+        }
+
+        if (!dateMatch) continue;
+
+        const dateStr = dateMatch[1];
+        const year = parseInt(dateStr.substring(0, 4));
+        const month = parseInt(dateStr.substring(4, 6)) - 1;
+        const day = parseInt(dateStr.substring(6, 8));
+        const date = new Date(year, month, day);
+
+        // Extract amount
+        const amountMatch = tranMatch.match(/<TRNAMT>([^<]+)<\/TRNAMT>/);
+        if (!amountMatch) continue;
+
+        const amount = parseFloat(amountMatch[1]);
+        const type = amount >= 0 ? "receita" : "despesa";
+
+        // Extract description
+        let description = "";
+        const nameMatch = tranMatch.match(/<NAME>([^<]+)<\/NAME>/);
+        const memoMatch = tranMatch.match(/<MEMO>([^<]+)<\/MEMO>/);
+
+        if (nameMatch) description = nameMatch[1].trim();
+        if (memoMatch) {
+          const memo = memoMatch[1].trim();
+          description = description ? `${description} - ${memo}` : memo;
+        }
+
+        if (!description) description = "Transação sem descrição";
+
+        // Extract transaction ID
+        const idMatch = tranMatch.match(/<FITID>([^<]+)<\/FITID>/);
+        const ofxId = idMatch ? idMatch[1] : `TRN-${Date.now()}`;
+
+        transactions.push({
+          date,
+          description,
+          amount: Math.abs(amount),
+          type,
+          ofxId,
+        });
+      } catch (error) {
+        console.error("Erro ao processar transação:", error);
+      }
+    }
+
+    return transactions;
   };
 
   const handleImportTransactions = async () => {
