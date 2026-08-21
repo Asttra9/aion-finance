@@ -27,18 +27,35 @@ function drawMetric(doc: PDFKit.PDFDocument, x: number, y: number, label: string
 }
 
 function drawTable(doc: PDFKit.PDFDocument, title: string, rows: Array<{ category: string; amount: number }>, y: number) {
+  const visibleRows = rows.slice(0, 10);
+  const noticeHeight = rows.length > visibleRows.length ? 24 : 0;
+  if (y + 47 + visibleRows.length * 22 + noticeHeight > 760) {
+    doc.addPage();
+    drawHeader(doc, "DETALHAMENTO FINANCEIRO", "Categorias do período");
+    y = 112;
+  }
   doc.fillColor("#0f2747").fontSize(11).font("Helvetica-Bold").text(title, 42, y);
   let cursor = y + 25;
   doc.roundedRect(42, cursor, 511, 22, 4).fill("#e9eef6");
   doc.fillColor("#475569").fontSize(8).font("Helvetica-Bold").text("CATEGORIA", 55, cursor + 7);
   doc.text("VALOR", 440, cursor + 7, { width: 98, align: "right" });
   cursor += 22;
-  rows.slice(0, 8).forEach((row, index) => {
+  visibleRows.forEach((row, index) => {
     if (index % 2 === 0) doc.rect(42, cursor, 511, 22).fill("#fbfcfe");
     doc.fillColor("#334155").fontSize(9).font("Helvetica").text(row.category, 55, cursor + 7, { width: 340 });
     doc.fillColor("#0f172a").font("Helvetica-Bold").text(formatCurrency(row.amount), 440, cursor + 7, { width: 98, align: "right" });
     cursor += 22;
   });
+  if (rows.length > visibleRows.length) {
+    const hidden = rows.length - visibleRows.length;
+    doc.fillColor("#64748b").fontSize(8).font("Helvetica-Oblique").text(
+      `Mais ${hidden} categoria${hidden === 1 ? "" : "s"} compõem este total e não foram exibida${hidden === 1 ? "" : "s"} nesta página.`,
+      55,
+      cursor + 7,
+      { width: 470 },
+    );
+    cursor += 24;
+  }
   return cursor;
 }
 
@@ -79,8 +96,8 @@ export async function buildFinancialReportPdf(input: ReportPdfInput): Promise<Bu
     tableY += 30;
     drawTable(doc, "Composição das despesas", summary.expenseByCategory, tableY);
   } else {
-    drawTable(doc, "Entradas por categoria", summary.incomeByCategory, tableY);
-    tableY += 220;
+    tableY = drawTable(doc, "Entradas por categoria", summary.incomeByCategory, tableY);
+    tableY += 30;
     drawTable(doc, "Saídas por categoria", summary.expenseByCategory, tableY);
   }
 

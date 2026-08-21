@@ -19,6 +19,10 @@ export default function Transacoes() {
     : undefined;
 
   const [open, setOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [categoryName, setCategoryName] = useState("");
+  const [categoryType, setCategoryType] = useState<"receita" | "despesa">("despesa");
+  const [categoryIsFixed, setCategoryIsFixed] = useState(false);
   const [filterType, setFilterType] = useState<"todas" | "receita" | "despesa">("todas");
   const [formData, setFormData] = useState({
     description: "",
@@ -32,6 +36,22 @@ export default function Transacoes() {
     { clientId: clientId || 0 },
     { enabled: !!clientId }
   );
+  const categoriesQuery = trpc.transactions.categoriesForClient.useQuery(
+    { clientId: clientId || 0 },
+    { enabled: !!clientId }
+  );
+  const createCategoryMutation = trpc.transactions.createCategory.useMutation({
+    onSuccess: () => {
+      categoriesQuery.refetch();
+      setCategoryOpen(false);
+      setCategoryName("");
+      setCategoryType("despesa");
+      setCategoryIsFixed(false);
+    },
+  });
+  const updateCategoryMutation = trpc.transactions.updateCategory.useMutation({
+    onSuccess: () => categoriesQuery.refetch(),
+  });
 
   const createMutation = trpc.transactions.create.useMutation({
     onSuccess: () => {
@@ -192,6 +212,31 @@ export default function Transacoes() {
             </DialogContent>
           </Dialog>
         </div>
+
+        <Card className="border-[#e5dfda] bg-[#fdfcfa]">
+          <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+            <div>
+              <CardTitle className="text-base">Categorias e custos fixos</CardTitle>
+              <CardDescription className="mt-1">Marque despesas recorrentes para tornar o ponto de equilíbrio mais preciso.</CardDescription>
+            </div>
+            <Dialog open={categoryOpen} onOpenChange={setCategoryOpen}>
+              <DialogTrigger asChild><Button variant="outline" size="sm">Nova categoria</Button></DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader><DialogTitle>Nova categoria financeira</DialogTitle><DialogDescription>Crie uma classificação para organizar os lançamentos.</DialogDescription></DialogHeader>
+                <form className="space-y-4" onSubmit={(event) => { event.preventDefault(); createCategoryMutation.mutate({ name: categoryName, type: categoryType, isFixedCost: categoryType === "despesa" && categoryIsFixed }); }}>
+                  <div className="space-y-2"><Label htmlFor="category-name">Nome</Label><Input id="category-name" value={categoryName} onChange={(event) => setCategoryName(event.target.value)} required /></div>
+                  <div className="space-y-2"><Label>Tipo</Label><Select value={categoryType} onValueChange={(value) => setCategoryType(value as "receita" | "despesa")}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="despesa">Despesa</SelectItem><SelectItem value="receita">Receita</SelectItem></SelectContent></Select></div>
+                  {categoryType === "despesa" && <label className="flex cursor-pointer items-center gap-2 rounded-lg bg-secondary/60 px-3 py-2 text-sm font-medium"><input type="checkbox" checked={categoryIsFixed} onChange={(event) => setCategoryIsFixed(event.target.checked)} /> Custo fixo recorrente</label>}
+                  <Button type="submit" className="w-full" disabled={createCategoryMutation.isPending}>{createCategoryMutation.isPending ? "Criando..." : "Criar categoria"}</Button>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </CardHeader>
+          <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {categoriesQuery.data?.filter((category) => category.type === "despesa").map((category) => <label key={category.id} className="flex min-h-11 items-center gap-2 rounded-lg border border-border px-3 text-sm font-medium"><input type="checkbox" checked={Boolean(category.isFixedCost)} onChange={(event) => updateCategoryMutation.mutate({ categoryId: category.id, isFixedCost: event.target.checked })} disabled={updateCategoryMutation.isPending} />{category.name}</label>)}
+            {!categoriesQuery.data?.length && <p className="text-sm text-muted-foreground">Cadastre categorias para organizar os indicadores e o ponto de equilíbrio.</p>}
+          </CardContent>
+        </Card>
 
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

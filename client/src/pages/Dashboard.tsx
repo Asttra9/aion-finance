@@ -108,7 +108,7 @@ export default function Dashboard() {
   const activeClientId = requestedClientId ?? ownClient?.id;
   const { data: selectedClient } = trpc.clients.get.useQuery({ clientId: activeClientId ?? 0 }, { enabled: !!activeClientId });
   const { data: clients = [], isLoading: clientListLoading } = trpc.clients.list.useQuery(undefined, { enabled: isConsultor && !requestedClientId });
-  const { data: transactions = [], isLoading: transactionsLoading } = trpc.transactions.list.useQuery({ clientId: activeClientId ?? 0 }, { enabled: !!activeClientId });
+  const { data: transactions = [], isLoading: transactionsLoading } = trpc.transactions.list.useQuery({ clientId: activeClientId ?? 0, limit: 100 }, { enabled: !!activeClientId });
   const { data: categories = [] } = trpc.transactions.categoriesForClient.useQuery({ clientId: activeClientId ?? 0 }, { enabled: !!activeClientId });
   const { data: accountsPayable = [] } = trpc.accountsPayable.list.useQuery({ clientId: activeClientId ?? 0 }, { enabled: !!activeClientId });
   const { data: accountsReceivable = [] } = trpc.accountsReceivable.list.useQuery({ clientId: activeClientId ?? 0 }, { enabled: !!activeClientId });

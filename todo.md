@@ -123,4 +123,18 @@
 - [x] Adicionar uma entrada visível para Metas na navegação de clientes pessoal e empresarial.
 - [x] Criar tela dedicada de Metas com caixinhas, aportes e histórico por mês.
 - [x] Criar testes, typecheck, build e validação visual das correções.
-- [ ] Salvar checkpoint das correções de navegação e metas.
+- [x] Salvar checkpoint das correções de navegação e metas (`c9524875`).
+
+## Robustez operacional — análise técnica recebida
+
+- [x] Remover a entrada lateral duplicada de Alertas e manter o sino flutuante como único acesso aos alertas.
+- [x] Eliminar consultas N+1 na importação OFX com verificação em lote de identificadores.
+- [x] Aceitar arquivos OFX 1.x em SGML e manter compatibilidade com OFX 2.x.
+- [x] Carregar transações recentes e limitadas nas superfícies de dashboard.
+- [x] Marcar categorias de custo fixo para cálculo determinístico do ponto de equilíbrio.
+- [x] Ampliar tabelas do PDF e informar categorias não exibidas.
+- [x] Centralizar a conversão validada de valores decimais financeiros.
+- [x] Implementar parser CSV do Mercado Pago e respectiva importação autorizada.
+- [x] Cobrir as melhorias com testes, typecheck, build e validação visual.
+- [x] Registrar evidência visual autenticada da conciliação, categorias e layout sem atalho lateral de Alertas.
+- [ ] Salvar checkpoint das melhorias operacionais.

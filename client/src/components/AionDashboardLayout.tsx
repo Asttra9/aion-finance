@@ -69,7 +69,6 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
     { label: "Clientes", href: "/clientes", icon: UsersRound },
     { label: "Conciliação", href: "/conciliacao", icon: ArrowRightLeft },
     { label: "Relatórios", href: "/relatorios", icon: FileBarChart2 },
-    { label: "Alertas", href: "/notificacoes", icon: BellRing },
   ];
 
   const personalItems: Item[] = [
@@ -78,7 +77,6 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
     { label: "Gastos e entradas", href: "/transacoes", icon: WalletCards },
     { label: "Minhas metas", href: "/metas", icon: Target },
     { label: "Relatórios", href: "/relatorios", icon: FileBarChart2 },
-    { label: "Alertas", href: "/notificacoes", icon: BellRing },
   ];
 
   const businessItems: Item[] = [
@@ -88,7 +86,6 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
     { label: "Entradas", href: "/contas-receber", icon: CircleDollarSign },
     { label: "Metas do negócio", href: "/metas", icon: Target },
     { label: "Relatórios", href: "/relatorios", icon: FileBarChart2 },
-    { label: "Alertas", href: "/notificacoes", icon: BellRing },
     ...(isMei ? [{ label: "Jornada MEI", href: "/mei-workflow", icon: BriefcaseBusiness }] : []),
   ];
 

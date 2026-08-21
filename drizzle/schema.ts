@@ -63,6 +63,7 @@ export const transactionCategories = mysqlTable("transaction_categories", {
   type: mysqlEnum("type", ["receita", "despesa"]).notNull(),
   color: varchar("color", { length: 7 }), // Hex color for UI
   isDefault: boolean("isDefault").default(false),
+  isFixedCost: boolean("isFixedCost").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

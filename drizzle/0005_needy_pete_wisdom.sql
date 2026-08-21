@@ -1,0 +1,1 @@
+ALTER TABLE `transaction_categories` ADD `isFixedCost` boolean DEFAULT false NOT NULL;

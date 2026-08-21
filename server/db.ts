@@ -1,5 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { inArray } from "drizzle-orm";
 import {
   InsertUser,
   users,
@@ -175,6 +176,37 @@ export async function getTransactionsByClient(clientId: number) {
     .orderBy(desc(transactions.date));
 }
 
+export async function getRecentTransactionsByClient(clientId: number, limit = 100) {
+  const db = await getDb();
+  if (!db) return [];
+
+  return db
+    .select()
+    .from(transactions)
+    .where(eq(transactions.clientId, clientId))
+    .orderBy(desc(transactions.date))
+    .limit(Math.min(Math.max(limit, 1), 500));
+}
+
+export async function getExistingTransactionOfxIds(clientId: number, ofxIds: string[]) {
+  const db = await getDb();
+  if (!db || ofxIds.length === 0) return new Set<string>();
+
+  const existing = new Set<string>();
+  const uniqueIds = Array.from(new Set(ofxIds));
+  for (let index = 0; index < uniqueIds.length; index += 500) {
+    const batch = uniqueIds.slice(index, index + 500);
+    const rows = await db
+      .select({ ofxId: transactions.ofxId })
+      .from(transactions)
+      .where(and(eq(transactions.clientId, clientId), inArray(transactions.ofxId, batch)));
+    rows.forEach((row) => {
+      if (row.ofxId) existing.add(row.ofxId);
+    });
+  }
+  return existing;
+}
+
 export async function createTransaction(
   data: typeof transactions.$inferInsert
 ) {
@@ -182,6 +214,14 @@ export async function createTransaction(
   if (!db) throw new Error("Database not available");
 
   return db.insert(transactions).values(data);
+}
+
+export async function createTransactions(data: Array<typeof transactions.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  for (let index = 0; index < data.length; index += 500) {
+    await db.insert(transactions).values(data.slice(index, index + 500));
+  }
 }
 
 export async function getTransactionCategories(consultorId: number) {
@@ -201,6 +241,22 @@ export async function createTransactionCategory(
   if (!db) throw new Error("Database not available");
 
   return db.insert(transactionCategories).values(data);
+}
+
+export async function getTransactionCategoryById(categoryId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const [category] = await db.select().from(transactionCategories).where(eq(transactionCategories.id, categoryId));
+  return category;
+}
+
+export async function updateTransactionCategory(
+  categoryId: number,
+  data: Partial<typeof transactionCategories.$inferInsert>,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.update(transactionCategories).set(data).where(eq(transactionCategories.id, categoryId));
 }
 
 // ===== ACCOUNTS PAYABLE QUERIES =====

@@ -6,9 +6,11 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import * as db from "./db";
 import { parseOFX, isValidOFX } from "./ofxParser";
+import { parseMercadoPagoCSV } from "./mercadoPagoParser";
 import { storagePut } from "./storage";
 import { buildFinancialReportPdf } from "./reportPdf";
 import { filterEntriesByMonth } from "./financialCalculations";
+import { isValidMoney, parseMoney, toDecimal } from "./financialValues";
 
 const consultorProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "consultor_aion" && ctx.user.role !== "admin") {
@@ -30,7 +32,7 @@ async function requireClientAccess(clientId: number, ctx: { user: NonNullable<im
   return client;
 }
 
-const money = z.string().refine((value) => Number.isFinite(Number(value)) && Number(value) >= 0, "Informe um valor financeiro válido.");
+const money = z.string().refine(isValidMoney, "Informe um valor financeiro válido.");
 const workflowStep = z.object({ step: z.string(), completed: z.boolean(), completedAt: z.string().optional() });
 const workflowDocument = z.object({ name: z.string(), uploaded: z.boolean(), uploadedAt: z.string().optional(), fileKey: z.string().optional() });
 
@@ -64,13 +66,13 @@ export const appRouter = router({
     create: consultorProcedure.input(z.object({
       name: z.string().min(2), email: z.string().email().optional(), phone: z.string().optional(), cpfCnpj: z.string().optional(),
       businessType: z.enum(["pessoal", "mei", "profissional_liberal", "pj"]), businessName: z.string().optional(), monthlyRevenue: money.optional(), notes: z.string().optional(),
-    })).mutation(({ input, ctx }) => db.createClient({ ...input, consultorId: ctx.user.id, monthlyRevenue: input.monthlyRevenue ? Number(input.monthlyRevenue) as any : undefined })),
+    })).mutation(({ input, ctx }) => db.createClient({ ...input, consultorId: ctx.user.id, monthlyRevenue: input.monthlyRevenue ? toDecimal(input.monthlyRevenue) : undefined })),
     update: consultorProcedure.input(z.object({
       clientId: z.number(), name: z.string().min(2).optional(), email: z.string().email().optional(), phone: z.string().optional(), businessName: z.string().optional(), monthlyRevenue: money.optional(), notes: z.string().optional(), status: z.enum(["ativo", "inativo", "em_onboarding"]).optional(),
     })).mutation(async ({ input, ctx }) => {
       const client = await db.getClientById(input.clientId);
       if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      return db.updateClient(input.clientId, { name: input.name, email: input.email, phone: input.phone, businessName: input.businessName, monthlyRevenue: input.monthlyRevenue ? Number(input.monthlyRevenue) as any : undefined, notes: input.notes, status: input.status });
+      return db.updateClient(input.clientId, { name: input.name, email: input.email, phone: input.phone, businessName: input.businessName, monthlyRevenue: input.monthlyRevenue ? toDecimal(input.monthlyRevenue) : undefined, notes: input.notes, status: input.status });
     }),
   }),
 
@@ -96,8 +98,8 @@ export const appRouter = router({
       return db.createFinancialGoal({
         clientId: input.clientId,
         name: input.name,
-        targetAmount: Number(input.targetAmount) as any,
-        savedAmount: Number(input.savedAmount ?? "0") as any,
+        targetAmount: toDecimal(input.targetAmount),
+        savedAmount: toDecimal(input.savedAmount ?? "0"),
         dueDate: input.dueDate,
         color: input.color,
         icon: input.icon,
@@ -107,16 +109,16 @@ export const appRouter = router({
       const goal = await db.getFinancialGoalById(input.goalId);
       if (!goal) throw new TRPCError({ code: "NOT_FOUND", message: "Meta não encontrada." });
       await requireClientAccess(goal.clientId, ctx);
-      const nextAmount = Number(goal.savedAmount) + Number(input.amount);
+      const nextAmount = parseMoney(goal.savedAmount) + parseMoney(input.amount);
       const contribution = {
         goalId: goal.id,
         clientId: goal.clientId,
-        amount: Number(input.amount) as any,
+        amount: toDecimal(input.amount),
         note: input.note || undefined,
         month: new Date().toISOString().slice(0, 7),
       };
       await db.createFinancialGoalContribution(contribution);
-      return db.updateFinancialGoal(goal.id, { savedAmount: nextAmount as any });
+      return db.updateFinancialGoal(goal.id, { savedAmount: toDecimal(nextAmount) });
     }),
     update: protectedProcedure.input(z.object({
       goalId: z.number(), name: z.string().min(2).max(140).optional(), targetAmount: money.optional(), dueDate: z.date().nullable().optional(), color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(), icon: z.string().max(32).optional(),
@@ -124,7 +126,7 @@ export const appRouter = router({
       const goal = await db.getFinancialGoalById(input.goalId);
       if (!goal) throw new TRPCError({ code: "NOT_FOUND" });
       await requireClientAccess(goal.clientId, ctx);
-      return db.updateFinancialGoal(goal.id, { name: input.name, targetAmount: input.targetAmount ? Number(input.targetAmount) as any : undefined, dueDate: input.dueDate, color: input.color, icon: input.icon });
+      return db.updateFinancialGoal(goal.id, { name: input.name, targetAmount: input.targetAmount ? toDecimal(input.targetAmount) : undefined, dueDate: input.dueDate, color: input.color, icon: input.icon });
     }),
     delete: protectedProcedure.input(z.object({ goalId: z.number() })).mutation(async ({ input, ctx }) => {
       const goal = await db.getFinancialGoalById(input.goalId);
@@ -135,17 +137,22 @@ export const appRouter = router({
   }),
 
   transactions: router({
-    list: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => { await requireClientAccess(input.clientId, ctx); return db.getTransactionsByClient(input.clientId); }),
+    list: protectedProcedure.input(z.object({ clientId: z.number(), limit: z.number().int().min(1).max(500).optional() })).query(async ({ input, ctx }) => { await requireClientAccess(input.clientId, ctx); return input.limit ? db.getRecentTransactionsByClient(input.clientId, input.limit) : db.getTransactionsByClient(input.clientId); }),
     categories: consultorProcedure.query(({ ctx }) => db.getTransactionCategories(ctx.user.id)),
     categoriesForClient: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => {
       const client = await requireClientAccess(input.clientId, ctx);
       return db.getTransactionCategories(client.consultorId);
     }),
-    createCategory: consultorProcedure.input(z.object({ name: z.string().min(2), type: z.enum(["receita", "despesa"]), color: z.string().optional() })).mutation(({ input, ctx }) => db.createTransactionCategory({ ...input, consultorId: ctx.user.id })),
+    createCategory: consultorProcedure.input(z.object({ name: z.string().min(2), type: z.enum(["receita", "despesa"]), color: z.string().optional(), isFixedCost: z.boolean().optional() })).mutation(({ input, ctx }) => db.createTransactionCategory({ ...input, consultorId: ctx.user.id })),
+    updateCategory: consultorProcedure.input(z.object({ categoryId: z.number(), name: z.string().min(2).optional(), color: z.string().nullable().optional(), isFixedCost: z.boolean().optional() })).mutation(async ({ input, ctx }) => {
+      const category = await db.getTransactionCategoryById(input.categoryId);
+      if (!category || category.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      return db.updateTransactionCategory(input.categoryId, { name: input.name, color: input.color ?? undefined, isFixedCost: input.isFixedCost });
+    }),
     create: consultorProcedure.input(z.object({ clientId: z.number(), categoryId: z.number().optional(), date: z.date(), description: z.string().min(2), amount: money, type: z.enum(["receita", "despesa"]), financeType: z.enum(["pessoal", "empresarial"]).default("empresarial"), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
       const client = await db.getClientById(input.clientId);
       if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      return db.createTransaction({ ...input, amount: Number(input.amount) as any });
+      return db.createTransaction({ ...input, amount: toDecimal(input.amount) });
     }),
     importOfx: consultorProcedure.input(z.object({ clientId: z.number(), fileName: z.string().min(1), content: z.string().min(20).max(5_000_000), financeType: z.enum(["pessoal", "empresarial"]).default("empresarial"), categoryId: z.number().optional() })).mutation(async ({ input, ctx }) => {
       const client = await db.getClientById(input.clientId);
@@ -155,15 +162,45 @@ export const appRouter = router({
       const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
       const stored = await storagePut(`clients/${input.clientId}/ofx/${safeName}`, Buffer.from(input.content, "utf8"), "application/x-ofx");
       await db.createFileUpload({ clientId: input.clientId, fileName: input.fileName, fileType: "ofx", fileKey: stored.key, fileSize: Buffer.byteLength(input.content), uploadedBy: ctx.user.id });
-      let imported = 0;
-      let skipped = 0;
-      for (const transaction of parsed.transactions) {
-        const duplicate = await db.getTransactionByOfxId(input.clientId, transaction.ofxId);
-        if (duplicate) { skipped++; continue; }
-        await db.createTransaction({ clientId: input.clientId, categoryId: input.categoryId, date: transaction.date, description: transaction.description, amount: transaction.amount as any, type: transaction.type, financeType: input.financeType, status: "pendente", ofxId: transaction.ofxId });
-        imported++;
-      }
+      const existingIds = await db.getExistingTransactionOfxIds(input.clientId, parsed.transactions.map((transaction) => transaction.ofxId));
+      const identifiersInFile = new Set<string>();
+      const newTransactions = parsed.transactions.filter((transaction) => {
+        if (existingIds.has(transaction.ofxId) || identifiersInFile.has(transaction.ofxId)) return false;
+        identifiersInFile.add(transaction.ofxId);
+        return true;
+      });
+      await db.createTransactions(newTransactions.map((transaction) => ({ clientId: input.clientId, categoryId: input.categoryId, date: transaction.date, description: transaction.description, amount: toDecimal(transaction.amount), type: transaction.type, financeType: input.financeType, status: "pendente", ofxId: transaction.ofxId })));
+      const imported = newTransactions.length;
+      const skipped = parsed.transactions.length - imported;
       return { imported, skipped, errors: parsed.errors, fileKey: stored.key, accountNumber: parsed.accountNumber, bankCode: parsed.bankCode };
+    }),
+    importMercadoPago: consultorProcedure.input(z.object({ clientId: z.number(), fileName: z.string().min(1), content: z.string().min(20).max(5_000_000), financeType: z.enum(["pessoal", "empresarial"]).default("empresarial"), categoryId: z.number().optional() })).mutation(async ({ input, ctx }) => {
+      const client = await db.getClientById(input.clientId);
+      if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      const parsed = parseMercadoPagoCSV(input.content);
+      if (!parsed.transactions.length && parsed.errors.length) throw new TRPCError({ code: "BAD_REQUEST", message: parsed.errors[0] });
+      const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const stored = await storagePut(`clients/${input.clientId}/mercado-pago/${safeName}`, Buffer.from(input.content, "utf8"), "text/csv");
+      await db.createFileUpload({ clientId: input.clientId, fileName: input.fileName, fileType: "csv", fileKey: stored.key, fileSize: Buffer.byteLength(input.content), uploadedBy: ctx.user.id });
+      const newItems = parsed.transactions.filter((transaction) => transaction.kind === "transaction");
+      const existingIds = await db.getExistingTransactionOfxIds(input.clientId, newItems.map((transaction) => `mp:${transaction.operationId}`));
+      const idsInFile = new Set<string>();
+      const newTransactions = newItems.filter((transaction) => {
+        const identifier = `mp:${transaction.operationId}`;
+        if (existingIds.has(identifier) || idsInFile.has(identifier)) return false;
+        idsInFile.add(identifier);
+        return true;
+      });
+      await db.createTransactions(newTransactions.map((transaction) => ({ clientId: input.clientId, categoryId: input.categoryId, date: transaction.date, description: transaction.description, amount: toDecimal(transaction.amount), type: transaction.type, financeType: input.financeType, status: "pendente", ofxId: `mp:${transaction.operationId}` })));
+      let cancelled = 0;
+      for (const refund of parsed.transactions.filter((transaction) => transaction.kind === "refund" && transaction.relatedOperationId)) {
+        const original = await db.getTransactionByOfxId(input.clientId, `mp:${refund.relatedOperationId}`);
+        if (original && original.status !== "cancelado") {
+          await db.updateTransaction(original.id, { status: "cancelado", notes: `Cancelada por devolução Mercado Pago: ${refund.operationId}` });
+          cancelled += 1;
+        }
+      }
+      return { imported: newTransactions.length, skipped: newItems.length - newTransactions.length, cancelled, errors: parsed.errors, fileKey: stored.key };
     }),
     update: consultorProcedure.input(z.object({ transactionId: z.number(), categoryId: z.number().nullable().optional(), financeType: z.enum(["pessoal", "empresarial"]).optional(), notes: z.string().optional(), description: z.string().min(2).optional() })).mutation(async ({ input, ctx }) => {
       const transaction = await db.getTransactionById(input.transactionId);
@@ -192,11 +229,11 @@ export const appRouter = router({
     list: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => { await requireClientAccess(input.clientId, ctx); return db.getAccountsPayableByClient(input.clientId); }),
     create: consultorProcedure.input(z.object({ clientId: z.number(), description: z.string().min(2), amount: money, dueDate: z.date(), vendor: z.string().optional(), category: z.string().optional(), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
       const client = await db.getClientById(input.clientId); if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      return db.createAccountPayable({ ...input, amount: Number(input.amount) as any });
+      return db.createAccountPayable({ ...input, amount: toDecimal(input.amount) });
     }),
     update: consultorProcedure.input(z.object({ apId: z.number(), description: z.string().min(2).optional(), amount: money.optional(), dueDate: z.date().optional(), vendor: z.string().optional(), category: z.string().optional(), notes: z.string().optional(), status: z.enum(["pendente", "pago", "vencido", "cancelado"]).optional() })).mutation(async ({ input, ctx }) => {
       const item = await db.getAccountPayableById(input.apId); const client = item && await db.getClientById(item.clientId); if (!item || !client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      return db.updateAccountPayable(input.apId, { description: input.description, amount: input.amount ? Number(input.amount) as any : undefined, dueDate: input.dueDate, vendor: input.vendor, category: input.category, notes: input.notes, status: input.status });
+      return db.updateAccountPayable(input.apId, { description: input.description, amount: input.amount ? toDecimal(input.amount) : undefined, dueDate: input.dueDate, vendor: input.vendor, category: input.category, notes: input.notes, status: input.status });
     }),
     updateStatus: consultorProcedure.input(z.object({ apId: z.number(), status: z.enum(["pendente", "pago", "vencido", "cancelado"]), paymentDate: z.date().optional() })).mutation(async ({ input, ctx }) => {
       const item = await db.getAccountPayableById(input.apId); const client = item && await db.getClientById(item.clientId); if (!item || !client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
@@ -212,11 +249,11 @@ export const appRouter = router({
     list: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => { await requireClientAccess(input.clientId, ctx); return db.getAccountsReceivableByClient(input.clientId); }),
     create: consultorProcedure.input(z.object({ clientId: z.number(), description: z.string().min(2), amount: money, dueDate: z.date(), customer: z.string().optional(), invoiceNumber: z.string().optional(), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
       const client = await db.getClientById(input.clientId); if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      return db.createAccountReceivable({ ...input, amount: Number(input.amount) as any });
+      return db.createAccountReceivable({ ...input, amount: toDecimal(input.amount) });
     }),
     update: consultorProcedure.input(z.object({ arId: z.number(), description: z.string().min(2).optional(), amount: money.optional(), dueDate: z.date().optional(), customer: z.string().optional(), invoiceNumber: z.string().optional(), notes: z.string().optional(), status: z.enum(["pendente", "pago", "vencido", "cancelado"]).optional() })).mutation(async ({ input, ctx }) => {
       const item = await db.getAccountReceivableById(input.arId); const client = item && await db.getClientById(item.clientId); if (!item || !client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      return db.updateAccountReceivable(input.arId, { description: input.description, amount: input.amount ? Number(input.amount) as any : undefined, dueDate: input.dueDate, customer: input.customer, invoiceNumber: input.invoiceNumber, notes: input.notes, status: input.status });
+      return db.updateAccountReceivable(input.arId, { description: input.description, amount: input.amount ? toDecimal(input.amount) : undefined, dueDate: input.dueDate, customer: input.customer, invoiceNumber: input.invoiceNumber, notes: input.notes, status: input.status });
     }),
     updateStatus: consultorProcedure.input(z.object({ arId: z.number(), status: z.enum(["pendente", "pago", "vencido", "cancelado"]), paymentDate: z.date().optional() })).mutation(async ({ input, ctx }) => {
       const item = await db.getAccountReceivableById(input.arId); const client = item && await db.getClientById(item.clientId); if (!item || !client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
@@ -280,10 +317,16 @@ export const appRouter = router({
       const client = await db.getClientById(input.clientId); if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       const transactions = await db.getTransactionsByClient(input.clientId);
       const monthly = filterEntriesByMonth(transactions, input.year, input.month);
-      const pdf = await buildFinancialReportPdf({ clientName: client.name, businessName: client.businessName, month: input.month, year: input.year, reportType: input.reportType, transactions: monthly });
+      const categories = await db.getTransactionCategories(client.consultorId);
+      const categoryById = new Map(categories.map((category) => [category.id, category]));
+      const reportEntries = monthly.map((transaction) => {
+        const category = transaction.categoryId ? categoryById.get(transaction.categoryId) : undefined;
+        return { ...transaction, category: category?.name, isFixedCost: category?.isFixedCost };
+      });
+      const pdf = await buildFinancialReportPdf({ clientName: client.name, businessName: client.businessName, month: input.month, year: input.year, reportType: input.reportType, transactions: reportEntries });
       const fileName = `${input.year}-${String(input.month).padStart(2, "0")}-${input.reportType}.pdf`;
       const stored = await storagePut(`clients/${input.clientId}/reports/${fileName}`, pdf, "application/pdf");
-      const summary = { totalIncome: monthly.filter((item) => item.type === "receita").reduce((sum, item) => sum + Math.abs(Number(item.amount)), 0), totalExpense: monthly.filter((item) => item.type === "despesa").reduce((sum, item) => sum + Math.abs(Number(item.amount)), 0) };
+      const summary = { totalIncome: monthly.filter((item) => item.type === "receita").reduce((sum, item) => sum + parseMoney(item.amount), 0), totalExpense: monthly.filter((item) => item.type === "despesa").reduce((sum, item) => sum + parseMoney(item.amount), 0) };
       await db.createReport({ clientId: input.clientId, month: new Date(input.year, input.month - 1, 1), reportType: input.reportType, fileKey: stored.key, fileUrl: stored.url, summary });
       await db.createFileUpload({ clientId: input.clientId, fileName, fileType: "pdf", fileKey: stored.key, fileSize: pdf.byteLength, uploadedBy: ctx.user.id });
       return { success: true, fileKey: stored.key, fileUrl: stored.url, size: pdf.byteLength };

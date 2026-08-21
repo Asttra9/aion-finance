@@ -4,6 +4,7 @@ export type FinancialEntry = {
   amount: string | number;
   type: "receita" | "despesa";
   category?: string | null;
+  isFixedCost?: boolean | null;
 };
 
 export type MonthlyFinancialSummary = {
@@ -31,10 +32,10 @@ export function calculateMonthlySummary(
   const netCashFlow = totalIncome - totalExpense;
   const grossMargin = totalIncome > 0 ? (netCashFlow / totalIncome) * 100 : 0;
 
-  const fixedExpenses = expense.reduce((sum, item) => {
-    const category = (item.category ?? "").toLowerCase();
-    return sum + (category.includes("fix") || category.includes("aluguel") || category.includes("salário") ? Math.abs(toNumber(item.amount)) : 0);
-  }, 0);
+  const fixedExpenses = expense.reduce(
+    (sum, item) => sum + (item.isFixedCost ? Math.abs(toNumber(item.amount)) : 0),
+    0,
+  );
   const variableExpenseRate = totalIncome > 0 ? Math.max(0, totalExpense - fixedExpenses) / totalIncome : 0;
   const breakEvenPoint = variableExpenseRate < 1 ? fixedExpenses / (1 - variableExpenseRate) : 0;
 

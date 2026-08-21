@@ -18,6 +18,7 @@ export default function Conciliacao() {
   const clientId = Number(location.split("/")[2]) || undefined;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [financeType, setFinanceType] = useState<"pessoal" | "empresarial">("empresarial");
+  const [importSource, setImportSource] = useState<"ofx" | "mercado_pago">("ofx");
   const [categoryId, setCategoryId] = useState<string>("none");
   const [selectedFileName, setSelectedFileName] = useState("");
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
@@ -32,6 +33,16 @@ export default function Conciliacao() {
       if (fileInputRef.current) fileInputRef.current.value = "";
       void utils.transactions.list.invalidate({ clientId });
       toast.success(`${result.imported} transação(ões) importada(s); ${result.skipped} duplicata(s) ignorada(s).`);
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const mercadoPagoMutation = trpc.transactions.importMercadoPago.useMutation({
+    onSuccess: (result) => {
+      setImportResult(result);
+      setSelectedFileName("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      void utils.transactions.list.invalidate({ clientId });
+      toast.success(`${result.imported} transação(ões) importada(s); ${result.skipped} duplicata(s) ignorada(s).${result.cancelled ? ` ${result.cancelled} devolução(ões) cancelaram lançamentos relacionados.` : ""}`);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -51,8 +62,12 @@ export default function Conciliacao() {
     const file = event.target.files?.[0];
     if (!file || !clientId) return;
     setSelectedFileName(file.name);
-    const content = await file.text();
-    importMutation.mutate({ clientId, fileName: file.name, content, financeType, categoryId: categoryId === "none" ? undefined : Number(categoryId) });
+    const content = importSource === "mercado_pago"
+      ? new TextDecoder("iso-8859-1").decode(await file.arrayBuffer())
+      : await file.text();
+    const payload = { clientId, fileName: file.name, content, financeType, categoryId: categoryId === "none" ? undefined : Number(categoryId) };
+    if (importSource === "mercado_pago") mercadoPagoMutation.mutate(payload);
+    else importMutation.mutate(payload);
   };
 
   if (!clientId) {
@@ -72,12 +87,13 @@ export default function Conciliacao() {
         </div>
 
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><FileUp className="h-5 w-5 text-primary" />Importar OFX</CardTitle><CardDescription>O arquivo será vinculado ao cliente e as transações serão deduplicadas pelo FITID.</CardDescription></CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-[1fr_220px_220px_auto] md:items-end">
-            <div className="space-y-2"><Label htmlFor="ofx-file">Arquivo OFX</Label><Input id="ofx-file" ref={fileInputRef} type="file" accept=".ofx,.txt" onChange={handleFileUpload} disabled={importMutation.isPending} /><p className="text-xs text-muted-foreground">{selectedFileName || "Até 5 MB · OFX 1.x"}</p></div>
+          <CardHeader><CardTitle className="flex items-center gap-2"><FileUp className="h-5 w-5 text-primary" />Importar extrato</CardTitle><CardDescription>{importSource === "ofx" ? "O arquivo será vinculado ao cliente e as transações serão deduplicadas pelo FITID." : "CSV do Mercado Pago: vendas e tarifas são importadas; devoluções cancelam o lançamento relacionado."}</CardDescription></CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-[1fr_190px_200px_220px_auto] md:items-end">
+            <div className="space-y-2"><Label htmlFor="ofx-file">{importSource === "ofx" ? "Arquivo OFX" : "CSV do Mercado Pago"}</Label><Input id="ofx-file" ref={fileInputRef} type="file" accept={importSource === "ofx" ? ".ofx,.txt" : ".csv"} onChange={handleFileUpload} disabled={importMutation.isPending || mercadoPagoMutation.isPending} /><p className="text-xs text-muted-foreground">{selectedFileName || (importSource === "ofx" ? "Até 5 MB · OFX 1.x e 2.x" : "Até 5 MB · CSV exportado pelo Mercado Pago")}</p></div>
+            <div className="space-y-2"><Label>Fonte do extrato</Label><Select value={importSource} onValueChange={(value) => setImportSource(value as "ofx" | "mercado_pago")}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="ofx">Banco (OFX)</SelectItem><SelectItem value="mercado_pago">Mercado Pago (CSV)</SelectItem></SelectContent></Select></div>
             <div className="space-y-2"><Label>Contexto financeiro</Label><Select value={financeType} onValueChange={(value: "pessoal" | "empresarial") => setFinanceType(value)}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="empresarial">Empresarial</SelectItem><SelectItem value="pessoal">Pessoal</SelectItem></SelectContent></Select></div>
             <div className="space-y-2"><Label>Categoria padrão</Label><Select value={categoryId} onValueChange={setCategoryId}><SelectTrigger><SelectValue placeholder="Sem categoria" /></SelectTrigger><SelectContent><SelectItem value="none">Sem categoria</SelectItem>{categoriesQuery.data?.map((category) => <SelectItem key={category.id} value={String(category.id)}>{category.name}</SelectItem>)}</SelectContent></Select></div>
-            <Button onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending}>{importMutation.isPending ? <><Spinner className="mr-2 h-4 w-4" />Importando</> : <><FileUp className="mr-2 h-4 w-4" />Selecionar OFX</>}</Button>
+            <Button onClick={() => fileInputRef.current?.click()} disabled={importMutation.isPending || mercadoPagoMutation.isPending}>{importMutation.isPending || mercadoPagoMutation.isPending ? <><Spinner className="mr-2 h-4 w-4" />Importando</> : <><FileUp className="mr-2 h-4 w-4" />Selecionar arquivo</>}</Button>
           </CardContent>
         </Card>
 

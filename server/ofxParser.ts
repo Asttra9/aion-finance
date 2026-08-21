@@ -1,8 +1,9 @@
 /**
- * OFX Parser - Parses Open Financial Exchange format files
- * Extracts transactions from OFX bank statements
+ * Parser de extratos OFX.
+ * Aceita OFX 2.x (XML) e OFX 1.x (SGML), cujo padrão mantém diversas tags sem
+ * fechamento. O parser deliberadamente lê apenas os campos financeiros usados
+ * pela Aion e não executa conteúdo do arquivo.
  */
-
 export interface OFXTransaction {
   date: Date;
   description: string;
@@ -18,165 +19,103 @@ export interface OFXParseResult {
   errors: string[];
 }
 
-/**
- * Parse OFX file content and extract transactions
- * Supports OFX 1.x format (plain text)
- */
-export function parseOFX(content: string): OFXParseResult {
-  const result: OFXParseResult = {
-    transactions: [],
-    errors: [],
-  };
-
-  try {
-    // Extract STMTRS (Statement Response) section
-    const stmtMatch = content.match(/<STMTRS>[\s\S]*?<\/STMTRS>/);
-    if (!stmtMatch) {
-      result.errors.push("Nenhuma seção STMTRS encontrada no arquivo OFX");
-      return result;
-    }
-
-    const stmtContent = stmtMatch[0];
-
-    // Extract account info
-    const bankIdMatch = stmtContent.match(/<BANKID>([^<]+)<\/BANKID>/);
-    const accountMatch = stmtContent.match(/<ACCTID>([^<]+)<\/ACCTID>/);
-
-    if (bankIdMatch) result.bankCode = bankIdMatch[1];
-    if (accountMatch) result.accountNumber = accountMatch[1];
-
-    // Extract transaction list
-    const tranlistMatch = stmtContent.match(
-      /<BANKTRANLIST>[\s\S]*?<\/BANKTRANLIST>/
-    );
-    if (!tranlistMatch) {
-      result.errors.push("Nenhuma lista de transações encontrada");
-      return result;
-    }
-
-    const tranlistContent = tranlistMatch[0];
-
-    // Extract individual transactions
-    const tranMatches = tranlistContent.match(/<STMTTRN>[\s\S]*?<\/STMTTRN>/g);
-    if (!tranMatches) {
-      result.errors.push("Nenhuma transação encontrada");
-      return result;
-    }
-
-    for (const tranMatch of tranMatches) {
-      try {
-        const transaction = parseTransaction(tranMatch);
-        if (transaction) {
-          result.transactions.push(transaction);
-        }
-      } catch (error) {
-        result.errors.push(
-          `Erro ao processar transação: ${error instanceof Error ? error.message : "desconhecido"}`
-        );
-      }
-    }
-  } catch (error) {
-    result.errors.push(
-      `Erro ao processar arquivo OFX: ${error instanceof Error ? error.message : "desconhecido"}`
-    );
-  }
-
-  return result;
+function tagValue(content: string, tag: string) {
+  const match = content.match(new RegExp(`<${tag}\\b[^>]*>\\s*([^<\\r\\n]+)`, "i"));
+  return match?.[1]?.trim();
 }
 
-/**
- * Parse individual transaction from OFX STMTTRN element
- */
-function parseTransaction(tranContent: string): OFXTransaction | null {
-  // Extract date (DTPOSTED or TRNDATE)
-  let dateMatch = tranContent.match(/<DTPOSTED>(\d{8})/);
-  if (!dateMatch) {
-    dateMatch = tranContent.match(/<TRNDATE>(\d{8})/);
-  }
+function section(content: string, tag: string) {
+  const closed = content.match(new RegExp(`<${tag}\\b[^>]*>[\\s\\S]*?</${tag}\\s*>`, "i"));
+  if (closed) return closed[0];
+  const start = content.search(new RegExp(`<${tag}\\b[^>]*>`, "i"));
+  return start >= 0 ? content.slice(start) : undefined;
+}
 
-  if (!dateMatch) {
-    throw new Error("Data da transação não encontrada");
-  }
+function parseOfxAmount(rawValue: string) {
+  const normalized = rawValue.includes(",")
+    ? rawValue.replace(/\./g, "").replace(",", ".")
+    : rawValue;
+  const amount = Number(normalized);
+  if (!Number.isFinite(amount)) throw new Error("Valor da transação é inválido");
+  return amount;
+}
 
-  const dateStr = dateMatch[1];
-  const year = parseInt(dateStr.substring(0, 4));
-  const month = parseInt(dateStr.substring(4, 6)) - 1; // JS months are 0-indexed
-  const day = parseInt(dateStr.substring(6, 8));
+function parseTransaction(content: string): OFXTransaction {
+  const dateValue = tagValue(content, "DTPOSTED") ?? tagValue(content, "TRNDATE");
+  if (!dateValue || !/^\d{8}/.test(dateValue)) throw new Error("Data da transação não encontrada");
+  const year = Number(dateValue.slice(0, 4));
+  const month = Number(dateValue.slice(4, 6)) - 1;
+  const day = Number(dateValue.slice(6, 8));
   const date = new Date(year, month, day);
+  if (Number.isNaN(date.getTime())) throw new Error("Data da transação é inválida");
 
-  // Extract amount
-  const amountMatch = tranContent.match(/<TRNAMT>([^<]+)<\/TRNAMT>/);
-  if (!amountMatch) {
-    throw new Error("Valor da transação não encontrado");
-  }
+  const rawAmount = tagValue(content, "TRNAMT");
+  if (!rawAmount) throw new Error("Valor da transação não encontrado");
+  const signedAmount = parseOfxAmount(rawAmount);
 
-  const amount = parseFloat(amountMatch[1]);
-  const type: "receita" | "despesa" = amount >= 0 ? "receita" : "despesa";
-
-  // Extract description (NAME or MEMO)
-  let description = "";
-  const nameMatch = tranContent.match(/<NAME>([^<]+)<\/NAME>/);
-  const memoMatch = tranContent.match(/<MEMO>([^<]+)<\/MEMO>/);
-
-  if (nameMatch) {
-    description = nameMatch[1].trim();
-  }
-  if (memoMatch) {
-    const memo = memoMatch[1].trim();
-    description = description ? `${description} - ${memo}` : memo;
-  }
-
-  if (!description) {
-    description = "Transação sem descrição";
-  }
-
-  // Extract transaction ID
-  const idMatch = tranContent.match(/<FITID>([^<]+)<\/FITID>/);
-  const fallbackSource = `${date.toISOString().slice(0, 10)}|${amount.toFixed(2)}|${description}`;
-  const fallbackHash = Array.from(fallbackSource).reduce((hash, char) => ((hash * 31 + char.charCodeAt(0)) >>> 0), 2166136261);
-  const ofxId = idMatch ? idMatch[1].trim() : `TRN-${fallbackHash.toString(16)}`;
+  const name = tagValue(content, "NAME");
+  const memo = tagValue(content, "MEMO");
+  const description = [name, memo].filter(Boolean).join(" - ") || "Transação sem descrição";
+  const fallbackSource = `${date.toISOString().slice(0, 10)}|${signedAmount.toFixed(2)}|${description}`;
+  const fallbackHash = Array.from(fallbackSource).reduce(
+    (hash, character) => ((hash * 31 + character.charCodeAt(0)) >>> 0),
+    2166136261,
+  );
 
   return {
     date,
     description,
-    amount: Math.abs(amount),
-    type,
-    ofxId,
+    amount: Math.abs(signedAmount),
+    type: signedAmount >= 0 ? "receita" : "despesa",
+    ofxId: tagValue(content, "FITID") ?? `TRN-${fallbackHash.toString(16)}`,
   };
 }
 
-/**
- * Validate OFX file format
- */
-export function isValidOFX(content: string): boolean {
-  return (
-    content.includes("<OFX>") &&
-    content.includes("</OFX>") &&
-    content.includes("<STMTRS>")
-  );
+export function parseOFX(content: string): OFXParseResult {
+  const result: OFXParseResult = { transactions: [], errors: [] };
+  try {
+    const normalized = content.replace(/^\uFEFF/, "");
+    const statement = section(normalized, "STMTRS");
+    if (!statement) {
+      result.errors.push("Nenhuma seção STMTRS encontrada no arquivo OFX");
+      return result;
+    }
+    result.bankCode = tagValue(statement, "BANKID");
+    result.accountNumber = tagValue(statement, "ACCTID");
+    const transactionList = section(statement, "BANKTRANLIST");
+    if (!transactionList) {
+      result.errors.push("Nenhuma lista de transações encontrada");
+      return result;
+    }
+
+    const transactionBlocks = Array.from(
+      transactionList.matchAll(/<STMTTRN\b[^>]*>([\s\S]*?)(?=<STMTTRN\b|<\/STMTTRN\b|<\/?BANKTRANLIST\b|$)/gi),
+    );
+    if (!transactionBlocks.length) {
+      result.errors.push("Nenhuma transação encontrada");
+      return result;
+    }
+    for (const block of transactionBlocks) {
+      try {
+        result.transactions.push(parseTransaction(block[1]));
+      } catch (error) {
+        result.errors.push(`Erro ao processar transação: ${error instanceof Error ? error.message : "desconhecido"}`);
+      }
+    }
+  } catch (error) {
+    result.errors.push(`Erro ao processar arquivo OFX: ${error instanceof Error ? error.message : "desconhecido"}`);
+  }
+  return result;
 }
 
-/**
- * Extract bank and account info from OFX
- */
-export function extractOFXMetadata(content: string): {
-  bankCode?: string;
-  accountNumber?: string;
-  accountType?: string;
-} {
-  const metadata: {
-    bankCode?: string;
-    accountNumber?: string;
-    accountType?: string;
-  } = {};
+export function isValidOFX(content: string): boolean {
+  return /<OFX\b[^>]*>/i.test(content) && /<STMTRS\b[^>]*>/i.test(content) && /<BANKTRANLIST\b[^>]*>/i.test(content);
+}
 
-  const bankIdMatch = content.match(/<BANKID>([^<]+)<\/BANKID>/);
-  const accountMatch = content.match(/<ACCTID>([^<]+)<\/ACCTID>/);
-  const acctTypeMatch = content.match(/<ACCTTYPE>([^<]+)<\/ACCTTYPE>/);
-
-  if (bankIdMatch) metadata.bankCode = bankIdMatch[1];
-  if (accountMatch) metadata.accountNumber = accountMatch[1];
-  if (acctTypeMatch) metadata.accountType = acctTypeMatch[1];
-
-  return metadata;
+export function extractOFXMetadata(content: string): { bankCode?: string; accountNumber?: string; accountType?: string } {
+  return {
+    bankCode: tagValue(content, "BANKID"),
+    accountNumber: tagValue(content, "ACCTID"),
+    accountType: tagValue(content, "ACCTTYPE"),
+  };
 }

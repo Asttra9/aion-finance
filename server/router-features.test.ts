@@ -153,9 +153,9 @@ describe("financialGoals", () => {
     await caller.financialGoals.create({ clientId: 3, name: "Reserva de segurança", targetAmount: "2000", color: "#B21D31" });
     await caller.financialGoals.contribute({ goalId: 71, amount: "150" });
 
-    expect(dbMocks.createFinancialGoal).toHaveBeenCalledWith(expect.objectContaining({ clientId: 3, targetAmount: 2000, savedAmount: 0 }));
-    expect(dbMocks.createFinancialGoalContribution).toHaveBeenCalledWith(expect.objectContaining({ goalId: 71, clientId: 3, amount: 150 }));
-    expect(dbMocks.updateFinancialGoal).toHaveBeenCalledWith(71, expect.objectContaining({ savedAmount: 500 }));
+    expect(dbMocks.createFinancialGoal).toHaveBeenCalledWith(expect.objectContaining({ clientId: 3, targetAmount: "2000.00", savedAmount: "0.00" }));
+    expect(dbMocks.createFinancialGoalContribution).toHaveBeenCalledWith(expect.objectContaining({ goalId: 71, clientId: 3, amount: "150.00" }));
+    expect(dbMocks.updateFinancialGoal).toHaveBeenCalledWith(71, expect.objectContaining({ savedAmount: "500.00" }));
   });
 
   it("retorna o histórico de aportes apenas para o cliente autorizado", async () => {
