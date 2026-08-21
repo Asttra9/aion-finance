@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Spinner } from "@/components/ui/spinner";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle2, FileUp, RefreshCw } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileUp, LockKeyhole, RefreshCw } from "lucide-react";
 import { useLocation } from "wouter";
 import AionDashboardLayout from "@/components/AionDashboardLayout";
 import { toast } from "sonner";
 
 export default function Conciliacao() {
+  const { user } = useAuth();
   const [location] = useLocation();
   const clientId = Number(location.split("/")[2]) || undefined;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -24,6 +26,7 @@ export default function Conciliacao() {
   const [selectedFileName, setSelectedFileName] = useState("");
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const isConsultor = user?.role === "consultor_aion" || user?.role === "admin";
 
   const transactionsQuery = trpc.transactions.list.useQuery({ clientId: clientId || 0 }, { enabled: !!clientId });
   const categoriesQuery = trpc.transactions.categories.useQuery(undefined, { enabled: !!clientId });
@@ -83,6 +86,7 @@ export default function Conciliacao() {
   if (!clientId) {
     return <AionDashboardLayout><Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>Selecione um cliente para acessar a conciliação bancária.</AlertDescription></Alert></AionDashboardLayout>;
   }
+  if (!isConsultor) return <AionDashboardLayout><div className="aion-empty"><LockKeyhole className="mx-auto mb-3 h-10 w-10 text-primary" /><h1 className="text-xl font-bold">Conciliação conduzida pela Aion</h1><p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">A sua visão reúne os saldos, contas, movimentações e metas que apoiam suas decisões financeiras.</p></div></AionDashboardLayout>;
 
   return (
     <AionDashboardLayout>

@@ -563,6 +563,16 @@ export async function markNotificationAsRead(notificationId: number) {
     .where(eq(notifications.id, notificationId));
 }
 
+export async function resolveNotification(notificationId: number, resolutionNote?: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  return db
+    .update(notifications)
+    .set({ read: true, resolvedAt: new Date(), resolutionNote })
+    .where(eq(notifications.id, notificationId));
+}
+
 
 export async function getTransactionByOfxId(clientId: number, ofxId: string) {
   const db = await getDb();

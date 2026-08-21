@@ -18,10 +18,9 @@ import Pessoal from "@/pages/Pessoal";
 import Mei from "@/pages/Mei";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
-import { ThemeProvider } from "./contexts/ThemeContext";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Spinner } from "@/components/ui/spinner";
-import { useEffect } from "react";
+import { type ReactNode, useEffect } from "react";
 import { useLocation } from "wouter";
 
 function AuthenticatedRoot() {
@@ -39,6 +38,24 @@ function AuthenticatedRoot() {
     </div>
   );
 }
+
+function ConsultorOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const isConsultor = user?.role === "consultor_aion" || user?.role === "admin";
+  return isConsultor ? <>{children}</> : <Pessoal />;
+}
+
+const ConsultorClientes = () => <ConsultorOnly><Clientes /></ConsultorOnly>;
+const ConsultorOperacao = () => <ConsultorOnly><Operacao /></ConsultorOnly>;
+const ConsultorClientDashboard = () => <ConsultorOnly><Dashboard /></ConsultorOnly>;
+const ConsultorClientTransactions = () => <ConsultorOnly><Transacoes /></ConsultorOnly>;
+const ConsultorClientPayables = () => <ConsultorOnly><ContasPagar /></ConsultorOnly>;
+const ConsultorClientReceivables = () => <ConsultorOnly><ContasReceber /></ConsultorOnly>;
+const ConsultorClientReports = () => <ConsultorOnly><Relatorios /></ConsultorOnly>;
+const ConsultorClientGoals = () => <ConsultorOnly><Metas /></ConsultorOnly>;
+const ConsultorClientMeiWorkflow = () => <ConsultorOnly><MeiWorkflow /></ConsultorOnly>;
+const ConsultorClientReconciliation = () => <ConsultorOnly><Conciliacao /></ConsultorOnly>;
+const ConsultorClientNotifications = () => <ConsultorOnly><Notificacoes /></ConsultorOnly>;
 
 function Router() {
   const { isAuthenticated, loading } = useAuth();
@@ -71,17 +88,17 @@ function Router() {
       <Route path="/mei" component={Mei} />
       <Route path="/negocio" component={Dashboard} />
       <Route path="/acesso" component={Acesso} />
-      <Route path="/clientes" component={Clientes} />
-      <Route path="/operacao" component={Operacao} />
-      <Route path="/clientes/:id/dashboard" component={Dashboard} />
-      <Route path="/clientes/:id/transacoes" component={Transacoes} />
-      <Route path="/clientes/:id/contas-pagar" component={ContasPagar} />
-      <Route path="/clientes/:id/contas-receber" component={ContasReceber} />
-      <Route path="/clientes/:id/relatorios" component={Relatorios} />
-      <Route path="/clientes/:id/metas" component={Metas} />
-      <Route path="/clientes/:id/mei-workflow" component={MeiWorkflow} />
-      <Route path="/clientes/:id/conciliacao" component={Conciliacao} />
-      <Route path="/clientes/:id/notificacoes" component={Notificacoes} />
+      <Route path="/clientes" component={ConsultorClientes} />
+      <Route path="/operacao" component={ConsultorOperacao} />
+      <Route path="/clientes/:id/dashboard" component={ConsultorClientDashboard} />
+      <Route path="/clientes/:id/transacoes" component={ConsultorClientTransactions} />
+      <Route path="/clientes/:id/contas-pagar" component={ConsultorClientPayables} />
+      <Route path="/clientes/:id/contas-receber" component={ConsultorClientReceivables} />
+      <Route path="/clientes/:id/relatorios" component={ConsultorClientReports} />
+      <Route path="/clientes/:id/metas" component={ConsultorClientGoals} />
+      <Route path="/clientes/:id/mei-workflow" component={ConsultorClientMeiWorkflow} />
+      <Route path="/clientes/:id/conciliacao" component={ConsultorClientReconciliation} />
+      <Route path="/clientes/:id/notificacoes" component={ConsultorClientNotifications} />
       <Route path="/transacoes" component={Transacoes} />
       <Route path="/contas-pagar" component={ContasPagar} />
       <Route path="/contas-receber" component={ContasReceber} />
@@ -97,12 +114,10 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="light">
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
-      </ThemeProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Router />
+      </TooltipProvider>
     </ErrorBoundary>
   );
 }

@@ -26,13 +26,17 @@ const dbMocks = vi.hoisted(() => ({
   createFinancialGoalContribution: vi.fn(),
   getFinancialGoalContributionsByClient: vi.fn(),
   getTransactionById: vi.fn(),
+  getTransactionsByClient: vi.fn(),
+  getTransactionCategories: vi.fn(),
   reconcilePendingTransactionsByClient: vi.fn(),
   createTransaction: vi.fn(),
   updateTransaction: vi.fn(),
   deleteTransaction: vi.fn(),
   getReportById: vi.fn(),
   getNotificationsByClient: vi.fn(),
+  getNotificationById: vi.fn(),
   createNotification: vi.fn(),
+  resolveNotification: vi.fn(),
 }));
 
 vi.mock("./db", async () => {
@@ -104,6 +108,27 @@ describe("notifications.generateDueAlerts", () => {
     const caller = appRouter.createCaller(createConsultorContext());
     await expect(caller.notifications.generateDueAlerts({ clientId: 3, daysAhead: 7 })).resolves.toEqual({ created: 0 });
     expect(dbMocks.createNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe("notifications.resolve", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.getClientById.mockResolvedValue(client);
+    dbMocks.getNotificationById.mockResolvedValue({ id: 14, clientId: 3, resolvedAt: null });
+    dbMocks.resolveNotification.mockResolvedValue({ success: true });
+  });
+
+  it("resolve um alerta do próprio cliente e registra a observação", async () => {
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.notifications.resolve({ notificationId: 14, resolutionNote: "Pagamento confirmado." })).resolves.toEqual({ success: true });
+    expect(dbMocks.resolveNotification).toHaveBeenCalledWith(14, "Pagamento confirmado.");
+  });
+
+  it("impede resolver um alerta já encerrado", async () => {
+    dbMocks.getNotificationById.mockResolvedValue({ id: 14, clientId: 3, resolvedAt: new Date() });
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.notifications.resolve({ notificationId: 14 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
 });
 
@@ -267,5 +292,16 @@ describe("financial permissions", () => {
     dbMocks.getClientById.mockResolvedValue({ id: 99, consultorId: 22, userId: 99, name: "Outro cliente" });
     const caller = appRouter.createCaller(createClientContext(7));
     await expect(caller.reports.download({ reportId: 77 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("exporta CSV mensal somente para o consultor responsável", async () => {
+    dbMocks.getClientById.mockResolvedValue(client);
+    dbMocks.getTransactionsByClient.mockResolvedValue([{ id: 1, date: new Date("2026-08-15"), description: "Serviço", amount: "250.00", type: "receita", categoryId: 5, financeType: "empresarial", status: "conciliado" }]);
+    dbMocks.getTransactionCategories.mockResolvedValue([{ id: 5, name: "Vendas" }]);
+    const caller = appRouter.createCaller(createConsultorContext());
+    const result = await caller.reports.exportCsv({ clientId: 3, month: 8, year: 2026 });
+    expect(result.fileName).toBe("aion-movimentacoes-2026-08.csv");
+    expect(result.content).toContain("Serviço");
+    await expect(appRouter.createCaller(createClientContext()).reports.exportCsv({ clientId: 3, month: 8, year: 2026 })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });

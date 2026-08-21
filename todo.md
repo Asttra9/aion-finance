@@ -183,3 +183,15 @@
 - [x] Paginar a listagem de transações em grupos de 20 registros, com controles de navegação acessíveis.
 - [x] Criar testes, typecheck, build e validação visual dos fluxos e temas atualizados.
 - [x] Salvar checkpoint da experiência operacional e visual.
+
+## Correções de navegação e extensões operacionais
+
+- [x] Corrigir a alternância persistente do modo claro e escuro no menu de perfil.
+- [x] Corrigir o comportamento e o espaçamento da barra lateral quando recolhida.
+- [x] Integrar filtros avançados de período e categoria nas movimentações financeiras.
+- [x] Criar central de notificações com leitura, resolução e contexto da pendência.
+- [x] Adicionar exportação CSV autorizada para relatórios operacionais.
+- [x] Garantir que o perfil do cliente final exiba somente o resumo financeiro pertinente e ações pessoais.
+- [x] Corrigir a superfície fixa clara e o contraste insuficiente do painel de categorias no modo escuro.
+- [x] Criar ou atualizar testes, typecheck, build e validação visual destas correções.
+- [x] Salvar checkpoint das correções de navegação e extensões operacionais.

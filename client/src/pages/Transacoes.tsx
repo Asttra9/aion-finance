@@ -25,6 +25,9 @@ export default function Transacoes() {
   const [categoryType, setCategoryType] = useState<"receita" | "despesa">("despesa");
   const [categoryIsFixed, setCategoryIsFixed] = useState(false);
   const [filterType, setFilterType] = useState<"todas" | "receita" | "despesa">("todas");
+  const [categoryFilter, setCategoryFilter] = useState("todas");
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [formData, setFormData] = useState({
     description: "",
@@ -84,8 +87,12 @@ export default function Transacoes() {
   };
 
   const filteredTransactions = transactions?.filter((t) => {
-    if (filterType === "todas") return true;
-    return t.type === filterType;
+    const transactionDate = new Date(t.date);
+    const isTypeMatch = filterType === "todas" || t.type === filterType;
+    const isCategoryMatch = categoryFilter === "todas" || t.categoryId === Number(categoryFilter);
+    const isAfterStart = !periodStart || transactionDate >= new Date(`${periodStart}T00:00:00`);
+    const isBeforeEnd = !periodEnd || transactionDate <= new Date(`${periodEnd}T23:59:59`);
+    return isTypeMatch && isCategoryMatch && isAfterStart && isBeforeEnd;
   }) || [];
 
   const totalIncome = filteredTransactions
@@ -221,7 +228,7 @@ export default function Transacoes() {
           </Dialog>
         </div>
 
-        <Card className="border-[#e5dfda] bg-[#fdfcfa]">
+        <Card className="border-border bg-card">
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div>
               <CardTitle className="text-base">Categorias e custos fixos</CardTitle>
@@ -303,17 +310,17 @@ export default function Transacoes() {
         {/* Transactions Table */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <CardTitle>Histórico de Transações</CardTitle>
                 <CardDescription>
-                  Lista de todas as transações registradas
+                  Aplique filtros para analisar lançamentos por contexto, período e categoria.
                 </CardDescription>
               </div>
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-muted-foreground" />
+              <div className="grid gap-2 sm:grid-cols-2 xl:flex xl:items-center">
+                <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground xl:mr-1"><Filter className="h-4 w-4" /><span>Filtros</span></div>
                 <Select value={filterType} onValueChange={(value: "todas" | "receita" | "despesa") => { setFilterType(value); setCurrentPage(1); }}>
-                  <SelectTrigger className="w-40">
+                  <SelectTrigger className="w-full xl:w-36">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -322,6 +329,13 @@ export default function Transacoes() {
                     <SelectItem value="despesa">Despesas</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={categoryFilter} onValueChange={(value) => { setCategoryFilter(value); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Categoria" /></SelectTrigger>
+                  <SelectContent><SelectItem value="todas">Categorias</SelectItem>{categoriesQuery.data?.map((category) => <SelectItem key={category.id} value={String(category.id)}>{category.name}</SelectItem>)}</SelectContent>
+                </Select>
+                <Input aria-label="Data inicial" type="date" value={periodStart} onChange={(event) => { setPeriodStart(event.target.value); setCurrentPage(1); }} className="w-full xl:w-36" />
+                <Input aria-label="Data final" type="date" value={periodEnd} onChange={(event) => { setPeriodEnd(event.target.value); setCurrentPage(1); }} className="w-full xl:w-36" />
+                {(filterType !== "todas" || categoryFilter !== "todas" || periodStart || periodEnd) && <Button variant="ghost" size="sm" onClick={() => { setFilterType("todas"); setCategoryFilter("todas"); setPeriodStart(""); setPeriodEnd(""); setCurrentPage(1); }}>Limpar</Button>}
               </div>
             </div>
           </CardHeader>
@@ -401,7 +415,7 @@ export default function Transacoes() {
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground mb-4">
-                  Nenhuma transação registrada
+                  Nenhuma transação encontrada para os filtros selecionados
                 </p>
                 <Button onClick={() => setOpen(true)}>
                   <Plus className="w-4 h-4 mr-2" />

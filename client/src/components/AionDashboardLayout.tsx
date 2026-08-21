@@ -155,16 +155,16 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
     <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarOpenChange}>
       <div className="flex min-h-screen w-full bg-background">
         <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
-          <SidebarHeader className="border-b border-sidebar-border px-4 py-5">
-            <div className="flex items-center gap-2">
-            <button onClick={() => navigate("/dashboard")} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+          <SidebarHeader className="border-b border-sidebar-border px-4 py-5 group-data-[collapsible=icon]:p-1">
+            <div className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+            <button onClick={() => navigate("/dashboard")} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary group-data-[collapsible=icon]:hidden">
               <img src={AION_MARK_URL} alt="Símbolo da Aion" className="h-10 w-10 rounded-xl object-cover" />
               <span className="min-w-0 group-data-[collapsible=icon]:hidden">
                 <span className="block text-base font-extrabold tracking-[-0.03em]">Aion</span>
                 <span className="block truncate text-xs text-[#c5bdb8]">{workspaceName}</span>
               </span>
             </button>
-            <SidebarTrigger aria-label="Recolher barra lateral" className="hidden min-h-10 min-w-10 rounded-xl text-[#ded7d2] hover:bg-[#3a3838] hover:text-white md:inline-flex" />
+            <SidebarTrigger aria-label={sidebarOpen ? "Recolher barra lateral" : "Expandir barra lateral"} className="hidden min-h-10 min-w-10 rounded-xl text-[#ded7d2] hover:bg-[#3a3838] hover:text-white md:inline-flex group-data-[collapsible=icon]:inline-flex" />
             </div>
           </SidebarHeader>
 
@@ -180,7 +180,7 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
                     <SidebarMenuButton
                       onClick={() => navigate(href)}
                       isActive={active}
-                      className="min-h-11 rounded-xl px-3 text-[0.88rem] font-semibold text-[#ded7d2] hover:bg-[#3a3838] hover:text-white data-[active=true]:bg-primary data-[active=true]:text-white"
+                      className="min-h-11 rounded-xl px-3 text-[0.88rem] font-semibold text-[#ded7d2] hover:bg-[#3a3838] hover:text-white data-[active=true]:bg-primary data-[active=true]:text-white group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center"
                     >
                       <Icon className="h-4 w-4" aria-hidden="true" />
                       <span>{item.label}</span>
@@ -194,7 +194,7 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
           <div className="mt-auto border-t border-sidebar-border p-4 group-data-[collapsible=icon]:p-2"><p className="px-2 text-xs text-[#a89f99] group-data-[collapsible=icon]:hidden">Gestão financeira consultiva</p></div>
         </Sidebar>
 
-        <div className="min-w-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-x-clip">
           <header className="sticky top-0 z-10 flex min-h-18 items-center gap-4 border-b border-border/80 bg-background/95 px-4 py-3 backdrop-blur sm:px-8">
             <SidebarTrigger className="min-h-11 min-w-11 rounded-xl hover:bg-secondary md:hidden" />
             <div className="min-w-0">
@@ -216,7 +216,7 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
                   </div> : <div className="px-5 py-6 text-sm text-muted-foreground">Abra a visão de um cliente para consultar os alertas e os aportes das suas metas.</div>}
                 </div>}
               </div>
-              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="flex h-auto min-w-11 items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left hover:bg-secondary sm:px-2"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-extrabold text-secondary-foreground">{(user?.name ?? "A").trim().slice(0, 1).toUpperCase()}</span><span className="hidden min-w-0 sm:block"><span className="block max-w-36 truncate text-sm font-extrabold">{user?.name ?? "Conta Aion"}</span><span className="block text-xs text-muted-foreground">{isConsultor ? "Consultor Aion" : isPersonal ? "Pessoal / Família" : "Microempresário"}</span></span><ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-60"><DropdownMenuLabel>Minha conta</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onClick={() => toggleTheme?.()}>{theme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}{theme === "dark" ? "Usar modo claro" : "Usar modo escuro"}</DropdownMenuItem><DropdownMenuItem onSelect={() => setProfileOpen(true)}><PencilLine className="mr-2 h-4 w-4" />Editar informações</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem className="text-primary focus:bg-accent focus:text-primary" onSelect={() => { logout(); navigate("/"); }}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="flex h-auto min-w-11 items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left hover:bg-secondary sm:px-2"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-extrabold text-secondary-foreground">{(user?.name ?? "A").trim().slice(0, 1).toUpperCase()}</span><span className="hidden min-w-0 sm:block"><span className="block max-w-36 truncate text-sm font-extrabold">{user?.name ?? "Conta Aion"}</span><span className="block text-xs text-muted-foreground">{isConsultor ? "Consultor Aion" : isPersonal ? "Pessoal / Família" : "Microempresário"}</span></span><ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-60"><DropdownMenuLabel>Minha conta</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => toggleTheme?.()}>{theme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}{theme === "dark" ? "Usar modo claro" : "Usar modo escuro"}</DropdownMenuItem><DropdownMenuItem onSelect={() => setProfileOpen(true)}><PencilLine className="mr-2 h-4 w-4" />Editar informações</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem className="text-primary focus:bg-accent focus:text-primary" onSelect={() => { logout(); navigate("/"); }}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
             </div>
           </header>
           <main className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</main>

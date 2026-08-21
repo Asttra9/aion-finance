@@ -36,6 +36,27 @@ const money = z.string().refine(isValidMoney, "Informe um valor financeiro váli
 const workflowStep = z.object({ step: z.string(), completed: z.boolean(), completedAt: z.string().optional() });
 const workflowDocument = z.object({ name: z.string(), uploaded: z.boolean(), uploadedAt: z.string().optional(), fileKey: z.string().optional() });
 
+function csvCell(value: unknown) {
+  return `"${String(value ?? "").replace(/"/g, '""')}"`;
+}
+
+function buildTransactionsCsv(
+  transactions: Awaited<ReturnType<typeof db.getTransactionsByClient>>,
+  categoryById: Map<number, { name: string }>,
+) {
+  const header = ["Data", "Descrição", "Tipo", "Categoria", "Contexto", "Status", "Valor (R$)"];
+  const rows = transactions.map((transaction) => [
+    new Intl.DateTimeFormat("pt-BR").format(new Date(transaction.date)),
+    transaction.description,
+    transaction.type === "receita" ? "Receita" : "Despesa",
+    transaction.categoryId ? categoryById.get(transaction.categoryId)?.name ?? "Sem categoria" : "Sem categoria",
+    transaction.financeType === "pessoal" ? "Pessoal" : "Empresarial",
+    transaction.status,
+    parseMoney(transaction.amount).toFixed(2).replace(".", ","),
+  ]);
+  return `\uFEFF${[header, ...rows].map((row) => row.map(csvCell).join(";")).join("\n")}`;
+}
+
 const defaultSteps = [
   "Definir atividade e dados do MEI",
   "Validar documentos do titular",
@@ -313,6 +334,13 @@ export const appRouter = router({
     markAsRead: protectedProcedure.input(z.object({ notificationId: z.number() })).mutation(async ({ input, ctx }) => {
       const notification = await db.getNotificationById(input.notificationId); if (!notification) throw new TRPCError({ code: "NOT_FOUND" }); await requireClientAccess(notification.clientId, ctx); return db.markNotificationAsRead(input.notificationId);
     }),
+    resolve: protectedProcedure.input(z.object({ notificationId: z.number(), resolutionNote: z.string().trim().max(280).optional() })).mutation(async ({ input, ctx }) => {
+      const notification = await db.getNotificationById(input.notificationId);
+      if (!notification) throw new TRPCError({ code: "NOT_FOUND" });
+      await requireClientAccess(notification.clientId, ctx);
+      if (notification.resolvedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "Este alerta já foi resolvido." });
+      return db.resolveNotification(input.notificationId, input.resolutionNote || undefined);
+    }),
     createReminder: consultorProcedure.input(z.object({ clientId: z.number(), relatedId: z.number().optional(), title: z.string().min(2), message: z.string().min(2) })).mutation(async ({ input, ctx }) => {
       const client = await db.getClientById(input.clientId); if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       return db.createNotification({ clientId: input.clientId, relatedId: input.relatedId, relatedType: input.relatedId ? "accounts_receivable" : undefined, type: "lembrete_cobranca", title: input.title, message: input.message, read: false });
@@ -354,6 +382,18 @@ export const appRouter = router({
       await db.createReport({ clientId: input.clientId, month: new Date(input.year, input.month - 1, 1), reportType: input.reportType, fileKey: stored.key, fileUrl: stored.url, summary });
       await db.createFileUpload({ clientId: input.clientId, fileName, fileType: "pdf", fileKey: stored.key, fileSize: pdf.byteLength, uploadedBy: ctx.user.id });
       return { success: true, fileKey: stored.key, fileUrl: stored.url, size: pdf.byteLength };
+    }),
+    exportCsv: consultorProcedure.input(z.object({ clientId: z.number(), month: z.number().min(1).max(12), year: z.number().min(2020).max(2100) })).query(async ({ input, ctx }) => {
+      const client = await db.getClientById(input.clientId);
+      if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      const [transactions, categories] = await Promise.all([
+        db.getTransactionsByClient(input.clientId),
+        db.getTransactionCategories(client.consultorId),
+      ]);
+      const monthlyTransactions = filterEntriesByMonth(transactions, input.year, input.month);
+      const categoryById = new Map(categories.map((category) => [category.id, category]));
+      const fileName = `aion-movimentacoes-${input.year}-${String(input.month).padStart(2, "0")}.csv`;
+      return { fileName, content: buildTransactionsCsv(monthlyTransactions, categoryById), count: monthlyTransactions.length };
     }),
     download: protectedProcedure.input(z.object({ reportId: z.number() })).query(async ({ input, ctx }) => {
       const report = await db.getReportById(input.reportId); if (!report) throw new TRPCError({ code: "NOT_FOUND" }); await requireClientAccess(report.clientId, ctx); if (!report.fileUrl) throw new TRPCError({ code: "NOT_FOUND", message: "Arquivo ainda não disponível." }); return { fileUrl: report.fileUrl, fileKey: report.fileKey };

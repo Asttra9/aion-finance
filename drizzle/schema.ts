@@ -270,6 +270,8 @@ export const notifications = mysqlTable("notifications", {
   relatedId: int("relatedId"), // ID of related AP/AR
   relatedType: mysqlEnum("relatedType", ["accounts_payable", "accounts_receivable"]),
   read: boolean("read").default(false),
+  resolvedAt: timestamp("resolvedAt"),
+  resolutionNote: varchar("resolutionNote", { length: 280 }),
   sentAt: timestamp("sentAt").defaultNow().notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
