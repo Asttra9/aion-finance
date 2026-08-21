@@ -60,9 +60,10 @@ export const appRouter = router({
   clients: router({
     list: consultorProcedure.query(({ ctx }) => db.getClientsByConsultor(ctx.user.id)),
     get: protectedProcedure.input(z.object({ clientId: z.number() })).query(({ input, ctx }) => requireClientAccess(input.clientId, ctx)),
+    me: protectedProcedure.query(({ ctx }) => db.getClientByUserId(ctx.user.id)),
     create: consultorProcedure.input(z.object({
       name: z.string().min(2), email: z.string().email().optional(), phone: z.string().optional(), cpfCnpj: z.string().optional(),
-      businessType: z.enum(["mei", "profissional_liberal", "pj"]), businessName: z.string().optional(), monthlyRevenue: money.optional(), notes: z.string().optional(),
+      businessType: z.enum(["pessoal", "mei", "profissional_liberal", "pj"]), businessName: z.string().optional(), monthlyRevenue: money.optional(), notes: z.string().optional(),
     })).mutation(({ input, ctx }) => db.createClient({ ...input, consultorId: ctx.user.id, monthlyRevenue: input.monthlyRevenue ? Number(input.monthlyRevenue) as any : undefined })),
     update: consultorProcedure.input(z.object({
       clientId: z.number(), name: z.string().min(2).optional(), email: z.string().email().optional(), phone: z.string().optional(), businessName: z.string().optional(), monthlyRevenue: money.optional(), notes: z.string().optional(), status: z.enum(["ativo", "inativo", "em_onboarding"]).optional(),
@@ -76,6 +77,10 @@ export const appRouter = router({
   transactions: router({
     list: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => { await requireClientAccess(input.clientId, ctx); return db.getTransactionsByClient(input.clientId); }),
     categories: consultorProcedure.query(({ ctx }) => db.getTransactionCategories(ctx.user.id)),
+    categoriesForClient: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => {
+      const client = await requireClientAccess(input.clientId, ctx);
+      return db.getTransactionCategories(client.consultorId);
+    }),
     createCategory: consultorProcedure.input(z.object({ name: z.string().min(2), type: z.enum(["receita", "despesa"]), color: z.string().optional() })).mutation(({ input, ctx }) => db.createTransactionCategory({ ...input, consultorId: ctx.user.id })),
     create: consultorProcedure.input(z.object({ clientId: z.number(), categoryId: z.number().optional(), date: z.date(), description: z.string().min(2), amount: money, type: z.enum(["receita", "despesa"]), financeType: z.enum(["pessoal", "empresarial"]).default("empresarial"), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
       const client = await db.getClientById(input.clientId);

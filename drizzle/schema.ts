@@ -41,7 +41,7 @@ export const clients = mysqlTable("clients", {
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 20 }),
   cpfCnpj: varchar("cpfCnpj", { length: 20 }).unique(),
-  businessType: mysqlEnum("businessType", ["mei", "profissional_liberal", "pj"]).notNull(),
+  businessType: mysqlEnum("businessType", ["pessoal", "mei", "profissional_liberal", "pj"]).notNull(),
   businessName: varchar("businessName", { length: 255 }),
   status: mysqlEnum("status", ["ativo", "inativo", "em_onboarding"]).default("ativo").notNull(),
   monthlyRevenue: decimal("monthlyRevenue", { precision: 12, scale: 2 }),

@@ -86,3 +86,17 @@
 ## Encerramento
 
 - [ ] Finalizar Devbuild 6.0.
+
+## Redesign Aion — Identidade, UX e jornadas segmentadas
+
+- [x] Aplicar paleta institucional Aion: vermelho profundo, grafite, branco e tons neutros de apoio.
+- [x] Incorporar o símbolo oficial da Aion no layout sem armazenar assets dentro do projeto.
+- [x] Redesenhar a navegação, hierarquia visual, estados vazios e responsividade do aplicativo.
+- [x] Separar as jornadas de Cliente Pessoal, Microempresário e Consultor Aion.
+- [x] Criar dashboard do Cliente Pessoal com entradas, gastos por categoria, contas pagas, contas a pagar e inadimplência.
+- [x] Criar dashboard do Microempresário com fluxo de caixa, entradas, saídas, contas e obrigações como DAS.
+- [x] Melhorar o Dashboard de Saúde Financeira com gráficos financeiros e insights acionáveis.
+- [x] Reposicionar MEI Workflow como jornada opcional de abertura e regularização de MEI.
+- [x] Remover MEI Workflow da navegação principal de perfis que não estejam em abertura ou regularização.
+- [x] Atualizar testes, typecheck, build e validação visual do redesign.
+- [ ] Criar checkpoint do redesign após validação.

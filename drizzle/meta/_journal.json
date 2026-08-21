@@ -15,6 +15,13 @@
       "when": 1786269606676,
       "tag": "0001_broken_oracle",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1787281936237,
+      "tag": "0002_lazy_mulholland_black",
+      "breakpoints": true
     }
   ]
 }

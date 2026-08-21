@@ -1,0 +1,1 @@
+ALTER TABLE `clients` MODIFY COLUMN `businessType` enum('pessoal','mei','profissional_liberal','pj') NOT NULL;

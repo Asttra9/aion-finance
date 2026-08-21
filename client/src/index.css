@@ -43,135 +43,91 @@
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
+  --aion-red: #b21d31;
+  --aion-red-deep: #8f1727;
+  --aion-red-soft: #f9e8eb;
+  --aion-charcoal: #2d2d2d;
+  --aion-graphite: #484848;
+  --aion-paper: #f7f5f2;
+  --radius: 0.9rem;
+  --background: #f7f5f2;
+  --foreground: #282525;
+  --card: #ffffff;
+  --card-foreground: #282525;
+  --popover: #ffffff;
+  --popover-foreground: #282525;
+  --primary: #b21d31;
+  --primary-foreground: #ffffff;
+  --secondary: #ece8e4;
+  --secondary-foreground: #3f3a3a;
+  --muted: #f1efec;
+  --muted-foreground: #716a67;
+  --accent: #f9e8eb;
+  --accent-foreground: #8f1727;
+  --destructive: #bc2836;
+  --destructive-foreground: #ffffff;
+  --border: #e5dfda;
+  --input: #e5dfda;
+  --ring: #b21d31;
+  --chart-1: #b21d31;
+  --chart-2: #363636;
+  --chart-3: #d77984;
+  --chart-4: #aa9b90;
+  --chart-5: #6f6965;
+  --sidebar: #2d2d2d;
+  --sidebar-foreground: #f8f6f3;
+  --sidebar-primary: #e24b5d;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #3a3838;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #4c4848;
+  --sidebar-ring: #e24b5d;
 }
 
 .dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+  --background: #252323;
+  --foreground: #f8f6f3;
+  --card: #302e2e;
+  --card-foreground: #f8f6f3;
+  --popover: #302e2e;
+  --popover-foreground: #f8f6f3;
+  --secondary: #3a3737;
+  --secondary-foreground: #f5f1ec;
+  --muted: #3a3737;
+  --muted-foreground: #bcb4ae;
+  --accent: #4b3437;
+  --accent-foreground: #ffd9dd;
+  --border: #494444;
+  --input: #494444;
+  --sidebar: #202020;
+  --sidebar-foreground: #f8f6f3;
+  --sidebar-accent: #353232;
+  --sidebar-accent-foreground: #ffffff;
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-  button:not(:disabled),
-  [role="button"]:not([aria-disabled="true"]),
-  [type="button"]:not(:disabled),
-  [type="submit"]:not(:disabled),
-  [type="reset"]:not(:disabled),
-  a[href],
-  select:not(:disabled),
-  input[type="checkbox"]:not(:disabled),
-  input[type="radio"]:not(:disabled) {
-    @apply cursor-pointer;
-  }
+  * { @apply border-border outline-ring/60; }
+  html { font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; }
+  body { @apply bg-background text-foreground antialiased; }
+  button:not(:disabled), [role="button"]:not([aria-disabled="true"]), a[href], select:not(:disabled), input:not(:disabled) { @apply cursor-pointer; }
+  button:active:not(:disabled), [role="button"]:active:not([aria-disabled="true"]) { transform: scale(.98); }
 }
 
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
-  .container {
-    width: 100%;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
-    padding-right: 1rem;
-  }
-
-  .flex {
-    min-height: 0;
-    min-width: 0;
-  }
-
-  @media (min-width: 640px) {
-    .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
-      padding-right: 1.5rem;
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .container {
-      padding-left: 2rem; /* 32px - desktop padding */
-      padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
-    }
-  }
+  .aion-page { @apply mx-auto w-full max-w-[1440px] space-y-7; }
+  .aion-eyebrow { @apply text-[0.68rem] font-extrabold uppercase tracking-[0.16em] text-primary; }
+  .aion-title { @apply text-3xl font-extrabold tracking-[-0.045em] text-foreground sm:text-4xl; }
+  .aion-panel { @apply rounded-[1.35rem] border border-border/90 bg-card text-card-foreground shadow-[0_12px_28px_rgba(62,48,43,0.05)]; }
+  .aion-metric { @apply relative overflow-hidden rounded-[1.35rem] border border-border/90 bg-card p-5 text-card-foreground shadow-[0_12px_28px_rgba(62,48,43,0.05)]; }
+  .aion-metric::before { content: ""; @apply absolute inset-x-0 top-0 h-1 bg-primary; }
+  .aion-empty { @apply rounded-[1.35rem] border border-dashed border-border bg-card px-6 py-12 text-center; }
+  .aion-nav-label { @apply px-3 pb-2 pt-5 text-[0.64rem] font-extrabold uppercase tracking-[0.15em] text-[#c5bdb8]; }
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .aion-page > * { animation: aion-enter 260ms cubic-bezier(0.23, 1, 0.32, 1) both; }
+  .aion-page > *:nth-child(2) { animation-delay: 35ms; }
+  .aion-page > *:nth-child(3) { animation-delay: 65ms; }
+}
+
+@keyframes aion-enter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }

@@ -20,7 +20,7 @@ export default function Clientes() {
     email: "",
     phone: "",
     cpfCnpj: "",
-    businessType: "mei" as const,
+    businessType: "pessoal" as const,
     businessName: "",
     monthlyRevenue: "",
   });
@@ -35,7 +35,7 @@ export default function Clientes() {
         email: "",
         phone: "",
         cpfCnpj: "",
-        businessType: "mei",
+        businessType: "pessoal",
         businessName: "",
         monthlyRevenue: "",
       });
@@ -54,7 +54,7 @@ export default function Clientes() {
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Clientes</h2>
             <p className="text-muted-foreground mt-1">
-              Gerencie seus clientes MEI e profissionais liberais
+              Acompanhe clientes pessoais, MEIs e microempresas em jornadas financeiras próprias.
             </p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
@@ -119,7 +119,7 @@ export default function Clientes() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="businessType">Tipo de Negócio *</Label>
+                  <Label htmlFor="businessType">Jornada financeira *</Label>
                   <Select
                     value={formData.businessType}
                     onValueChange={(value: any) =>
@@ -130,6 +130,7 @@ export default function Clientes() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="pessoal">Cliente Pessoal</SelectItem>
                       <SelectItem value="mei">MEI</SelectItem>
                       <SelectItem value="profissional_liberal">
                         Profissional Liberal
@@ -140,7 +141,7 @@ export default function Clientes() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="businessName">Nome da Empresa</Label>
+                  <Label htmlFor="businessName">Nome da empresa (quando aplicável)</Label>
                   <Input
                     id="businessName"
                     value={formData.businessName}
@@ -218,7 +219,9 @@ export default function Clientes() {
                         </TableCell>
                         <TableCell>{client.email || "-"}</TableCell>
                         <TableCell className="capitalize">
-                          {client.businessType === "profissional_liberal"
+                          {client.businessType === "pessoal"
+                            ? "Pessoal"
+                            : client.businessType === "profissional_liberal"
                             ? "Profissional Liberal"
                             : client.businessType.toUpperCase()}
                         </TableCell>
