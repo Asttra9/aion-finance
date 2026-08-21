@@ -195,3 +195,15 @@
 - [x] Corrigir a superfície fixa clara e o contraste insuficiente do painel de categorias no modo escuro.
 - [x] Criar ou atualizar testes, typecheck, build e validação visual destas correções.
 - [x] Salvar checkpoint das correções de navegação e extensões operacionais.
+
+## Indicadores, relatórios e recorrências por perfil
+
+- [ ] Criar comparativos mensais simplificados para a jornada pessoal do cliente final.
+- [ ] Criar indicadores mensais gerenciais para MEI e empreendedor, proporcionais à operação.
+- [ ] Adicionar ordenação de lançamentos por data, do mais recente ao mais antigo e vice-versa.
+- [ ] Corrigir a atualização da listagem após novos lançamentos operacionais da Aion.
+- [ ] Permitir exportação de resumo financeiro pessoal em PDF.
+- [ ] Permitir exportação de DRE gerencial em PDF para MEI e empreendedor.
+- [ ] Implementar contas recorrentes e assinaturas com geração de lançamentos previstos.
+- [ ] Criar ou atualizar testes, typecheck, build e validação visual dos novos fluxos.
+- [ ] Salvar checkpoint dos indicadores, relatórios e recorrências por perfil.
