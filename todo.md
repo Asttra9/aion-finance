@@ -1,93 +1,88 @@
-# Aion Finance - Devbuild 6.0 - TODO
+# Aion Finance — Devbuild 6.0
 
-## Fase 1: Análise e Arquitetura
-- [x] Definir identidade visual (cores, tipografia, componentes)
-- [x] Documentar arquitetura de dados
-- [x] Documentar fluxos de autenticação
+## Concluído
 
-## Fase 2: Banco de Dados e Autenticação
-- [x] Criar schema de usuários (Consultor Aion, Cliente)
-- [x] Implementar sistema de roles e permissões
-- [x] Criar tabelas de clientes e relacionamentos
-- [x] Implementar autenticação OAuth com dois perfis
-- [x] Criar testes de autenticação
+- [x] Schema inicial de usuários, clientes e módulos financeiros.
+- [x] Roles `consultor_aion` e `cliente` com base de autorização.
+- [x] Dashboard, clientes, transações, contas, relatórios, MEI e conciliação.
+- [x] Parser OFX inicial.
+- [x] Checkpoints históricos: `c85a73dc`, `f773733c`, `7db60e4b`.
+- [x] CRM, SalesOps e Pipeline removidos do escopo.
 
-## Fase 3: Módulo de Clientes e Dashboard
-- [x] Criar tabelas de clientes e perfis financeiros
-- [x] Implementar CRUD de clientes (Consultor Aion)
-- [x] Criar Dashboard de Saúde Financeira (Consultor + Cliente)
-- [x] Implementar indicadores: lucratividade, margem, ponto de equilíbrio
-- [x] Implementar DRE Simplificado
-- [x] Implementar visão semanal de fluxo de caixa
-- [x] Criar página de listagem de clientes
-- [x] Criar landing page com features
-- [x] Criar testes do dashboard
+## Devbuild 6.0 — pendências reais
 
-## Fase 4: Conciliação Bancária
-- [x] Criar tabelas para transações e categorias
-- [x] Implementar parser OFX
-- [x] Criar interface de importação de extratos
-- [x] Implementar categorização de entradas/saídas
-- [x] Implementar separação pessoal/empresarial
-- [ ] Criar testes de importação OFX
+- [x] Integrar importação OFX ao backend, armazenamento e deduplicação por `ofxId`.
+- [x] Persistir categoria e separação pessoal/empresarial nas transações.
+- [x] Implementar reconciliação de transações pendentes.
+- [x] Completar CRUD de contas a pagar e receber.
+- [x] Persistir checklist e documentos do workflow MEI com inicialização segura.
+- [x] Gerar PDF real de DRE e Fluxo de Caixa com layout consultivo.
+- [x] Armazenar PDFs e OFX e disponibilizar download autorizado.
+- [x] Implementar notificações internas de vencimento e cobrança.
+- [ ] Avaliar lembretes recorrentes via Heartbeat; não usar timers em processo.
+- [x] Criar testes de OFX e cálculos financeiros determinísticos.
+- [x] Criar testes de relatórios, workflow, CRUD e permissões.
+- [x] Criar testes de PDF, notificações e isolamento de permissões.
+- [x] Corrigir e validar a rota raiz com query string.
+- [x] Atualizar `ContasPagar.tsx` e `ContasReceber.tsx` com edição e exclusão reais.
+- [x] Atualizar `MeiWorkflow.tsx` para persistir etapas e documentos.
+- [x] Revisar rótulo exato `Consultor Aion` na interface.
+- [x] Executar typecheck, build, testes e validação visual.
+- [x] Documentar API e procedimentos.
+- [x] Criar checkpoint final.
 
-## Fase 5: Contas a Pagar/Receber e Relatórios
-- [x] Criar tabelas de contas a pagar/receber
-- [x] Implementar CRUD de contas
-- [x] Implementar sistema de alertas de vencimento
-- [x] Criar gerador de relatórios PDF (Fluxo de Caixa, DRE)
-- [ ] Implementar layout consultivo profissional
-- [ ] Implementar exportação de relatórios
-- [ ] Criar testes de relatórios
+## Critérios de saída
 
-## Fase 6: Workflow de MEI e Automação
-- [x] Criar tabela de workflow de abertura de MEI
-- [x] Implementar checklist de etapas
-- [ ] Implementar sistema de lembretes de cobrança
-- [ ] Integrar notificações para clientes
-- [ ] Criar testes de workflow
+- [x] Typecheck sem erros.
+- [x] Testes automatizados passando.
+- [x] Preview sem 404 em `/` e `/?from_webdev=1`.
+- [x] Dados de clientes isolados por autorização.
+- [x] PDFs e OFX vinculados individualmente ao cliente.
+- [x] Nenhum placeholder apresentado como funcionalidade concluída.
+- [x] Checkpoint final salvo.
 
-## Fase 7: Testes e Entrega
-- [ ] Executar testes de integração
-- [ ] Validar fluxos de usuário
-- [ ] Ajustes de UI/UX
-- [ ] Criar checkpoint final
-- [ ] Documentar API e procedimentos
+## Histórico de alterações
 
----
+- [x] Continuidade solicitada pelo usuário após checkpoint `7db60e4b`.
+- [x] Skills de automação, atualizações periódicas, armazenamento e notificações consultadas.
+- [ ] Implementação dos gaps em andamento.
 
-## Notas de Implementação
+## Escopo removido
 
-### Arquitetura de Dados
-- **Usuários**: Dois roles - `consultor_aion` e `cliente`
-- **Clientes**: Vinculados a um consultor, com perfil financeiro
-- **Transações**: Importadas de OFX, categorizadas e vinculadas a clientes
-- **Relatórios**: Gerados sob demanda, armazenados em S3
-- **Arquivos**: OFX e PDFs armazenados em S3, vinculados a clientes
+- [x] CRM.
+- [x] SalesOps.
+- [x] Pipeline.
 
-### Design Visual
-- Identidade visual: Gradiente azul (blue-500 a blue-700) com tema escuro para landing page
-- Foco em clareza, profissionalismo e usabilidade
-- Componentes shadcn/ui para consistência
-- Tailwind CSS 4 para styling
-- Dashboard com sidebar navigation
+## Regra operacional
 
-### Segurança
-- Separação clara de permissões entre Consultor e Cliente
-- Clientes veem apenas seus próprios dados
-- Consultores têm acesso total à plataforma
-- Arquivos armazenados com controle de acesso
+- [ ] Marcar itens como concluídos somente após evidência em código, teste ou validação visual.
+- [ ] Não publicar automaticamente.
+- [ ] Não criar dados financeiros fictícios apresentados como reais.
 
-### Componentes Criados
-- `AionDashboardLayout`: Layout com sidebar para dashboard
-- `Clientes`: Página de listagem e cadastro de clientes
-- `Dashboard`: Dashboard com indicadores financeiros e gráficos
-- `Home`: Landing page com features e CTA
+## Última atualização
 
-### Próximas Prioridades
-1. Implementar importação de OFX
-2. Criar páginas de Contas a Pagar/Receber
-3. Implementar geração de relatórios PDF
-4. Implementar workflow de MEI
-5. Adicionar testes unitários e de integração
+- [ ] Devbuild 6.0 em execução.
 
+## Fim
+
+- [ ] Entrega final ao usuário.
+
+## Nota de rastreabilidade
+
+- [x] O backlog anterior foi consolidado nesta versão para remover duplicidades acidentais e manter somente itens funcionais verificáveis.
+
+## Próximo passo
+
+- [x] Implementar a camada de dados e routers da Fase 2.
+
+## Controle
+
+- [ ] Revisar este arquivo antes do checkpoint.
+
+## Aion Finance
+
+- [ ] Plataforma financeira consultiva para MEIs e profissionais liberais.
+
+## Encerramento
+
+- [ ] Finalizar Devbuild 6.0.

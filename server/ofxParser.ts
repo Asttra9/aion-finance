@@ -132,7 +132,9 @@ function parseTransaction(tranContent: string): OFXTransaction | null {
 
   // Extract transaction ID
   const idMatch = tranContent.match(/<FITID>([^<]+)<\/FITID>/);
-  const ofxId = idMatch ? idMatch[1] : `TRN-${Date.now()}-${Math.random()}`;
+  const fallbackSource = `${date.toISOString().slice(0, 10)}|${amount.toFixed(2)}|${description}`;
+  const fallbackHash = Array.from(fallbackSource).reduce((hash, char) => ((hash * 31 + char.charCodeAt(0)) >>> 0), 2166136261);
+  const ofxId = idMatch ? idMatch[1].trim() : `TRN-${fallbackHash.toString(16)}`;
 
   return {
     date,

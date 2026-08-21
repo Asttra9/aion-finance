@@ -1,0 +1,28 @@
+import { useMemo, useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Spinner } from "@/components/ui/spinner";
+import { Bell, CheckCircle2, RefreshCw, Send } from "lucide-react";
+import { useLocation } from "wouter";
+import AionDashboardLayout from "@/components/AionDashboardLayout";
+import { toast } from "sonner";
+
+export default function Notificacoes() {
+  const [location] = useLocation();
+  const clientId = Number(location.split("/")[2]) || undefined;
+  const [title, setTitle] = useState("Lembrete de cobrança");
+  const [message, setMessage] = useState("");
+  const query = trpc.notifications.list.useQuery({ clientId: clientId || 0 }, { enabled: !!clientId });
+  const utils = trpc.useUtils();
+  const generateMutation = trpc.notifications.generateDueAlerts.useMutation({ onSuccess: (result) => { void utils.notifications.list.invalidate({ clientId }); toast.success(`${result.created} alerta(s) criado(s).`); }, onError: (error) => toast.error(error.message) });
+  const reminderMutation = trpc.notifications.createReminder.useMutation({ onSuccess: () => { void utils.notifications.list.invalidate({ clientId }); setMessage(""); toast.success("Lembrete registrado para o cliente."); }, onError: (error) => toast.error(error.message) });
+  const readMutation = trpc.notifications.markAsRead.useMutation({ onSuccess: () => void utils.notifications.list.invalidate({ clientId }), onError: (error) => toast.error(error.message) });
+  const notifications = query.data ?? [];
+  const unread = useMemo(() => notifications.filter((item) => !item.read), [notifications]);
+  if (!clientId) return <AionDashboardLayout><p className="text-muted-foreground">Selecione um cliente para acessar as notificações.</p></AionDashboardLayout>;
+  return <AionDashboardLayout><div className="space-y-6"><div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between"><div><p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">AION · Alertas</p><h1 className="mt-2 text-3xl font-bold">Notificações financeiras</h1><p className="mt-1 text-muted-foreground">Alertas de vencimento e lembretes de cobrança vinculados ao cliente.</p></div><div className="flex gap-2"><Button variant="outline" onClick={() => void query.refetch()} disabled={query.isFetching}><RefreshCw className={`mr-2 h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />Atualizar</Button><Button onClick={() => generateMutation.mutate({ clientId, daysAhead: 7 })} disabled={generateMutation.isPending}>{generateMutation.isPending ? <Spinner className="mr-2 h-4 w-4" /> : <Bell className="mr-2 h-4 w-4" />}Gerar alertas</Button></div></div><div className="grid gap-4 md:grid-cols-2"><Card><CardHeader className="pb-2"><CardDescription>Total de notificações</CardDescription><CardTitle className="text-2xl">{notifications.length}</CardTitle></CardHeader></Card><Card><CardHeader className="pb-2"><CardDescription>Não lidas</CardDescription><CardTitle className="text-2xl text-amber-600">{unread.length}</CardTitle></CardHeader></Card></div><Card><CardHeader><CardTitle>Novo lembrete de cobrança</CardTitle><CardDescription>Registre uma mensagem para aparecer no histórico do cliente.</CardDescription></CardHeader><CardContent><form className="grid gap-4 md:grid-cols-[240px_1fr_auto] md:items-end" onSubmit={(event) => { event.preventDefault(); if (message.trim()) reminderMutation.mutate({ clientId, title, message }); }}><div className="space-y-2"><Label>Título</Label><Input value={title} onChange={(event) => setTitle(event.target.value)} required /></div><div className="space-y-2"><Label>Mensagem</Label><Textarea value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Ex.: A fatura vence em 3 dias." required /></div><Button type="submit" disabled={reminderMutation.isPending}>{reminderMutation.isPending ? <Spinner className="mr-2 h-4 w-4" /> : <Send className="mr-2 h-4 w-4" />}Registrar lembrete</Button></form></CardContent></Card><Card><CardHeader><CardTitle>Histórico de alertas</CardTitle><CardDescription>O histórico permite auditar quando cada alerta foi criado e lido.</CardDescription></CardHeader><CardContent>{query.isLoading ? <div className="flex justify-center py-8"><Spinner className="h-6 w-6" /></div> : notifications.length === 0 ? <div className="py-10 text-center"><CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-emerald-600" /><p className="text-sm text-muted-foreground">Nenhum alerta registrado para este cliente.</p></div> : <div className="space-y-3">{notifications.map((notification) => <div key={notification.id} className={`rounded-xl border p-4 ${notification.read ? "bg-muted/30" : "border-primary/30 bg-primary/5"}`}><div className="flex items-start justify-between gap-4"><div><p className="font-semibold">{notification.title}</p><p className="mt-1 text-sm text-muted-foreground">{notification.message}</p><p className="mt-2 text-xs text-muted-foreground">Criado em {new Date(notification.createdAt).toLocaleString("pt-BR")}</p></div>{notification.read ? <span className="text-xs text-muted-foreground">Lida</span> : <Button size="sm" variant="outline" onClick={() => readMutation.mutate({ notificationId: notification.id })} disabled={readMutation.isPending}>Marcar como lida</Button>}</div></div>)}</div>}</CardContent></Card></div></AionDashboardLayout>;
+}

@@ -1,7 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarTrigger } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { LogOut, Menu } from "lucide-react";
 import { ReactNode } from "react";
 import { useLocation } from "wouter";
@@ -15,8 +15,9 @@ export default function AionDashboardLayout({
 }: AionDashboardLayoutProps) {
   const { user, logout } = useAuth();
   const [, navigate] = useLocation();
+  const isConsultor = user?.role === "consultor_aion" || user?.role === "admin";
 
-  const menuItems = user?.role === "consultor_aion" 
+  const menuItems = isConsultor 
     ? [
         { label: "Clientes", href: "/clientes" },
         { label: "Dashboard", href: "/dashboard" },
@@ -25,14 +26,17 @@ export default function AionDashboardLayout({
         { label: "Contas a Receber", href: "/contas-receber" },
         { label: "Relatórios", href: "/relatorios" },
         { label: "MEI Workflow", href: "/mei-workflow" },
+        { label: "Notificações", href: "/notificacoes" },
       ]
     : [
         { label: "Meu Dashboard", href: "/dashboard" },
         { label: "Minhas Transações", href: "/transacoes" },
         { label: "Meus Relatórios", href: "/relatorios" },
+        { label: "Notificações", href: "/notificacoes" },
       ];
 
   return (
+    <SidebarProvider>
     <div className="flex h-screen bg-background">
       <Sidebar className="border-r border-border">
         <SidebarHeader className="border-b border-border p-4">
@@ -43,7 +47,7 @@ export default function AionDashboardLayout({
             <div className="flex flex-col">
               <span className="font-semibold text-sm">Aion Finance</span>
               <span className="text-xs text-muted-foreground">
-                {user?.role === "consultor_aion" ? "Consultor" : "Cliente"}
+                {isConsultor ? "Consultor Aion" : "Cliente"}
               </span>
             </div>
           </div>
@@ -90,7 +94,7 @@ export default function AionDashboardLayout({
         <header className="border-b border-border bg-background px-6 py-4 flex items-center gap-4">
           <SidebarTrigger className="md:hidden" />
           <h1 className="text-2xl font-bold text-foreground">
-            {user?.role === "consultor_aion" 
+            {isConsultor
               ? "Gestão Financeira - Aion" 
               : "Meu Dashboard Financeiro"}
           </h1>
@@ -103,5 +107,6 @@ export default function AionDashboardLayout({
         </main>
       </div>
     </div>
+    </SidebarProvider>
   );
 }

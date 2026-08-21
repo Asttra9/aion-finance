@@ -1,0 +1,204 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { TrpcContext } from "./_core/context";
+
+const dbMocks = vi.hoisted(() => ({
+  getClientById: vi.fn(),
+  createClient: vi.fn(),
+  updateClient: vi.fn(),
+  getMeiWorkflowByClient: vi.fn(),
+  createMeiWorkflow: vi.fn(),
+  updateMeiWorkflow: vi.fn(),
+  getAccountsPayableByClient: vi.fn(),
+  getAccountPayableById: vi.fn(),
+  createAccountPayable: vi.fn(),
+  updateAccountPayable: vi.fn(),
+  deleteAccountPayable: vi.fn(),
+  getAccountsReceivableByClient: vi.fn(),
+  getAccountReceivableById: vi.fn(),
+  createAccountReceivable: vi.fn(),
+  updateAccountReceivable: vi.fn(),
+  deleteAccountReceivable: vi.fn(),
+  getTransactionById: vi.fn(),
+  createTransaction: vi.fn(),
+  updateTransaction: vi.fn(),
+  deleteTransaction: vi.fn(),
+  getReportById: vi.fn(),
+  getNotificationsByClient: vi.fn(),
+  createNotification: vi.fn(),
+}));
+
+vi.mock("./db", async () => {
+  const actual = await vi.importActual<typeof import("./db")>("./db");
+  return { ...actual, ...dbMocks };
+});
+
+import { appRouter } from "./routers";
+
+function createConsultorContext(): TrpcContext {
+  return {
+    user: {
+      id: 11,
+      openId: "consultor-user",
+      name: "Consultor Aion",
+      email: "consultor@example.com",
+      loginMethod: "manus",
+      role: "consultor_aion",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    },
+    req: { protocol: "https", headers: {} } as TrpcContext["req"],
+    res: { clearCookie: () => undefined } as TrpcContext["res"],
+  };
+}
+
+function createClientContext(userId = 7): TrpcContext {
+  return {
+    user: {
+      id: userId,
+      openId: "client-user",
+      name: "Cliente",
+      email: "cliente@example.com",
+      loginMethod: "manus",
+      role: "cliente",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    },
+    req: { protocol: "https", headers: {} } as TrpcContext["req"],
+    res: { clearCookie: () => undefined } as TrpcContext["res"],
+  };
+}
+
+const client = { id: 3, consultorId: 11, userId: 7, name: "Cliente" };
+
+describe("notifications.generateDueAlerts", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.getClientById.mockResolvedValue(client);
+    dbMocks.getAccountsPayableByClient.mockResolvedValue([
+      { id: 31, description: "Aluguel", dueDate: new Date(Date.now() + 2 * 86400000), status: "pendente" },
+    ]);
+    dbMocks.getAccountsReceivableByClient.mockResolvedValue([]);
+    dbMocks.getNotificationsByClient.mockResolvedValue([]);
+    dbMocks.createNotification.mockResolvedValue({ id: 1 });
+  });
+
+  it("cria um alerta de vencimento próximo e evita itens pagos", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    const result = await caller.notifications.generateDueAlerts({ clientId: 3, daysAhead: 7 });
+    expect(result).toEqual({ created: 1 });
+    expect(dbMocks.createNotification).toHaveBeenCalledWith(expect.objectContaining({ clientId: 3, relatedId: 31, type: "vencimento_proximo" }));
+  });
+
+  it("não duplica um alerta já existente para o mesmo item", async () => {
+    dbMocks.getNotificationsByClient.mockResolvedValue([{ id: 9, relatedId: 31, type: "vencimento_proximo" }]);
+    const caller = appRouter.createCaller(createConsultorContext());
+    await expect(caller.notifications.generateDueAlerts({ clientId: 3, daysAhead: 7 })).resolves.toEqual({ created: 0 });
+    expect(dbMocks.createNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe("meiWorkflow", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.getClientById.mockResolvedValue(client);
+    dbMocks.getMeiWorkflowByClient.mockResolvedValue(undefined);
+    dbMocks.createMeiWorkflow.mockResolvedValue({ id: 4, clientId: 3, status: "em_progresso" });
+    dbMocks.updateMeiWorkflow.mockResolvedValue({ id: 4, clientId: 3, status: "concluido" });
+  });
+
+  it("retorna um checklist inicial sem inventar dados do cliente", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    const result = await caller.meiWorkflow.get({ clientId: 3 });
+    expect(result.clientId).toBe(3);
+    expect(result.status).toBe("nao_iniciado");
+    expect(result.steps).toHaveLength(8);
+    expect(result.steps.every((step) => step.completed === false)).toBe(true);
+    expect(result.documents.every((document) => document.uploaded === false)).toBe(true);
+  });
+
+  it("persiste a atualização das etapas e do status", async () => {
+    const existing = { id: 4, clientId: 3, status: "em_progresso", steps: [], documents: [], notes: null };
+    dbMocks.getMeiWorkflowByClient.mockResolvedValue(existing);
+    const caller = appRouter.createCaller(createConsultorContext());
+    const steps = [{ step: "Emitir CCMEI", completed: true }];
+    await caller.meiWorkflow.updateStatus({ clientId: 3, status: "concluido", steps, notes: "Concluído" });
+    expect(dbMocks.updateMeiWorkflow).toHaveBeenCalledWith(3, expect.objectContaining({ status: "concluido", steps, notes: "Concluído" }));
+  });
+});
+
+describe("financial CRUD", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.getClientById.mockResolvedValue(client);
+    dbMocks.getAccountPayableById.mockResolvedValue({ id: 41, clientId: 3, description: "Fornecedor" });
+    dbMocks.getAccountReceivableById.mockResolvedValue({ id: 51, clientId: 3, description: "Projeto" });
+    dbMocks.getTransactionById.mockResolvedValue({ id: 61, clientId: 3, description: "Serviço" });
+    dbMocks.createAccountPayable.mockResolvedValue({ id: 41 });
+    dbMocks.updateAccountPayable.mockResolvedValue({ id: 41 });
+    dbMocks.deleteAccountPayable.mockResolvedValue({ success: true });
+    dbMocks.createAccountReceivable.mockResolvedValue({ id: 51 });
+    dbMocks.updateAccountReceivable.mockResolvedValue({ id: 51 });
+    dbMocks.deleteAccountReceivable.mockResolvedValue({ success: true });
+    dbMocks.createTransaction.mockResolvedValue({ id: 61 });
+    dbMocks.updateTransaction.mockResolvedValue({ id: 61 });
+    dbMocks.deleteTransaction.mockResolvedValue({ success: true });
+    dbMocks.createClient.mockResolvedValue({ id: 3, ...client });
+    dbMocks.updateClient.mockResolvedValue({ id: 3, ...client });
+  });
+
+  it("executa create/update/delete em contas a pagar", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    await caller.accountsPayable.create({ clientId: 3, description: "Fornecedor", amount: "100", dueDate: new Date("2026-08-15") });
+    await caller.accountsPayable.update({ apId: 41, description: "Fornecedor atualizado" });
+    await caller.accountsPayable.delete({ apId: 41 });
+    expect(dbMocks.createAccountPayable).toHaveBeenCalled();
+    expect(dbMocks.updateAccountPayable).toHaveBeenCalledWith(41, expect.objectContaining({ description: "Fornecedor atualizado" }));
+    expect(dbMocks.deleteAccountPayable).toHaveBeenCalledWith(41);
+  });
+
+  it("executa create/update/delete em contas a receber", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    await caller.accountsReceivable.create({ clientId: 3, description: "Projeto", amount: "250", dueDate: new Date("2026-08-15") });
+    await caller.accountsReceivable.update({ arId: 51, description: "Projeto atualizado" });
+    await caller.accountsReceivable.delete({ arId: 51 });
+    expect(dbMocks.createAccountReceivable).toHaveBeenCalled();
+    expect(dbMocks.updateAccountReceivable).toHaveBeenCalledWith(51, expect.objectContaining({ description: "Projeto atualizado" }));
+    expect(dbMocks.deleteAccountReceivable).toHaveBeenCalledWith(51);
+  });
+
+  it("executa create/update/delete de transação", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    await caller.transactions.create({ clientId: 3, description: "Serviço", amount: "250", date: new Date("2026-08-15"), type: "receita", financeType: "empresarial" });
+    await caller.transactions.update({ transactionId: 61, financeType: "pessoal" });
+    await caller.transactions.delete({ transactionId: 61 });
+    expect(dbMocks.createTransaction).toHaveBeenCalled();
+    expect(dbMocks.updateTransaction).toHaveBeenCalledWith(61, expect.objectContaining({ financeType: "pessoal" }));
+    expect(dbMocks.deleteTransaction).toHaveBeenCalledWith(61);
+  });
+
+  it("permite atualizar cliente somente pela trilha do consultor", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    await caller.clients.update({ clientId: 3, name: "Cliente atualizado" });
+    expect(dbMocks.updateClient).toHaveBeenCalledWith(3, expect.objectContaining({ name: "Cliente atualizado" }));
+  });
+});
+
+describe("financial permissions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("impede que um Cliente acesse a listagem global de clientes", async () => {
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.clients.list()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("impede que um Cliente acesse o relatório de outro cliente", async () => {
+    dbMocks.getReportById.mockResolvedValue({ id: 77, clientId: 99, fileUrl: "/manus-storage/private.pdf", fileKey: "private.pdf" });
+    dbMocks.getClientById.mockResolvedValue({ id: 99, consultorId: 22, userId: 99, name: "Outro cliente" });
+    const caller = appRouter.createCaller(createClientContext(7));
+    await expect(caller.reports.download({ reportId: 77 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});

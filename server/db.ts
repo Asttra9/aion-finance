@@ -1,4 +1,4 @@
-import { eq, and, desc } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser,
@@ -368,6 +368,79 @@ export async function markNotificationAsRead(notificationId: number) {
     .where(eq(notifications.id, notificationId));
 }
 
+
+export async function getTransactionByOfxId(clientId: number, ofxId: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(transactions)
+    .where(and(eq(transactions.clientId, clientId), eq(transactions.ofxId, ofxId)))
+    .limit(1);
+  return result[0];
+}
+
+export async function updateTransaction(
+  transactionId: number,
+  data: Partial<typeof transactions.$inferInsert>,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.update(transactions).set(data).where(eq(transactions.id, transactionId));
+}
+
+export async function deleteTransaction(transactionId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.delete(transactions).where(eq(transactions.id, transactionId));
+}
+
+export async function getTransactionById(transactionId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(transactions).where(eq(transactions.id, transactionId)).limit(1);
+  return result[0];
+}
+
+export async function getAccountPayableById(apId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(accountsPayable).where(eq(accountsPayable.id, apId)).limit(1);
+  return result[0];
+}
+
+export async function getAccountReceivableById(arId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(accountsReceivable).where(eq(accountsReceivable.id, arId)).limit(1);
+  return result[0];
+}
+
+export async function getNotificationById(notificationId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(notifications).where(eq(notifications.id, notificationId)).limit(1);
+  return result[0];
+}
+
+export async function deleteAccountPayable(apId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.delete(accountsPayable).where(eq(accountsPayable.id, apId));
+}
+
+export async function deleteAccountReceivable(arId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.delete(accountsReceivable).where(eq(accountsReceivable.id, arId));
+}
+
+export async function getReportById(reportId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(financialReports).where(eq(financialReports.id, reportId)).limit(1);
+  return result[0];
+}
 
 // ===== REPORTS =====
 
