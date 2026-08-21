@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import Home from "@/pages/Home";
 import Acesso from "@/pages/Acesso";
+import AtivarConta from "@/pages/AtivarConta";
 import Clientes from "@/pages/Clientes";
 import Dashboard from "@/pages/Dashboard";
 import Transacoes from "@/pages/Transacoes";
@@ -73,6 +74,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Acesso} />
         <Route path="/acesso" component={Acesso} />
+        <Route path="/ativar-conta" component={AtivarConta} />
         <Route path="/apresentacao" component={Home} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
@@ -88,6 +90,7 @@ function Router() {
       <Route path="/mei" component={Mei} />
       <Route path="/negocio" component={Dashboard} />
       <Route path="/acesso" component={Acesso} />
+      <Route path="/ativar-conta" component={AtivarConta} />
       <Route path="/clientes" component={ConsultorClientes} />
       <Route path="/operacao" component={ConsultorOperacao} />
       <Route path="/clientes/:id/dashboard" component={ConsultorClientDashboard} />

@@ -10,6 +10,7 @@ const personalSource = readFileSync(resolve(projectRoot, "client/src/pages/Pesso
 const meiSource = readFileSync(resolve(projectRoot, "client/src/pages/Mei.tsx"), "utf8");
 const clientSource = readFileSync(resolve(projectRoot, "client/src/pages/Clientes.tsx"), "utf8");
 const clientEditDialogSource = readFileSync(resolve(projectRoot, "client/src/components/ClientEditDialog.tsx"), "utf8");
+const activationSource = readFileSync(resolve(projectRoot, "client/src/pages/AtivarConta.tsx"), "utf8");
 const reconciliationSource = readFileSync(resolve(projectRoot, "client/src/pages/Conciliacao.tsx"), "utf8");
 const reportsSource = readFileSync(resolve(projectRoot, "client/src/pages/Relatorios.tsx"), "utf8");
 const transactionsSource = readFileSync(resolve(projectRoot, "client/src/pages/Transacoes.tsx"), "utf8");
@@ -147,6 +148,20 @@ describe("roteamento contextual da Aion", () => {
     expect(layoutSource).toContain('dados cadastrais são atualizados pelo suporte Aion');
     expect(layoutSource).toContain('Meus dados cadastrais');
     expect(layoutSource).toContain('Para qualquer alteração, solicite atendimento ao suporte Aion');
+  });
+
+  it("registra a ativação pública e permite somente convites seguros emitidos pelo consultor", () => {
+    expect(appSource).toContain('<Route path="/ativar-conta" component={AtivarConta} />');
+    expect(clientEditDialogSource).toContain('trpc.clients.createInvite.useMutation');
+    expect(clientEditDialogSource).toContain('Gerar convite');
+    expect(clientEditDialogSource).toContain('Revogar convite');
+    expect(clientEditDialogSource).not.toContain('provisionAccess');
+    expect(activationSource).toContain('trpc.auth.invitePreview.useQuery');
+    expect(activationSource).toContain('trpc.auth.acceptInvite.useMutation');
+    expect(activationSource).toContain('profileType: "pessoal"');
+    expect(activationSource).toContain('profileType: "empresarial"');
+    expect(activationSource).toContain('jornada financeira já foi definida');
+    expect(activationSource).toContain('const invalidTokenFormat = token.length < 40');
   });
 
   it("formata CPF/CNPJ e mantém a tendência consultiva acima do Foco do Dia", () => {

@@ -46,7 +46,10 @@ const dbMocks = vi.hoisted(() => ({
   getRecurringOccurrenceById: vi.fn(),
   confirmRecurringOccurrence: vi.fn(),
   updateRecurringOccurrenceStatus: vi.fn(),
-  provisionClientCredentials: vi.fn(),
+  createClientAccountInvite: vi.fn(),
+  revokeClientAccountInvite: vi.fn(),
+  getAccountInvitePreview: vi.fn(),
+  acceptAccountInvite: vi.fn(),
 }));
 
 vi.mock("./db", async () => {
@@ -93,26 +96,90 @@ function createClientContext(userId = 7): TrpcContext {
 }
 
 const client = { id: 3, consultorId: 11, userId: 7, name: "Cliente" };
+const inviteToken = "a".repeat(43);
+const invitedClient = {
+  ...client,
+  email: "cliente@example.com",
+  businessType: "pessoal" as const,
+  businessName: null,
+  cpfCnpj: null,
+};
 
-describe("clients.provisionAccess", () => {
+describe("convites e ativação de conta", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    dbMocks.getClientById.mockResolvedValue({ ...client, email: "cliente@example.com" });
-    dbMocks.provisionClientCredentials.mockResolvedValue({ userId: 7, email: "cliente@example.com" });
+    dbMocks.getClientById.mockResolvedValue(invitedClient);
+    dbMocks.getAccountInvitePreview.mockResolvedValue({
+      state: "valido",
+      invite: { email: invitedClient.email, expiresAt: new Date(Date.now() + 86400000) },
+      client: invitedClient,
+    });
   });
 
-  it("permite ao consultor responsável configurar uma senha sem retornar seu conteúdo", async () => {
+  it("permite ao consultor responsável gerar um convite sem expor dados de persistência", async () => {
+    dbMocks.createClientAccountInvite.mockResolvedValue({ token: inviteToken, email: invitedClient.email, expiresAt: new Date(Date.now() + 86400000) });
     const caller = appRouter.createCaller(createConsultorContext());
-    await expect(caller.clients.provisionAccess({ clientId: 3, password: "SenhaAion2026" })).resolves.toEqual({ userId: 7, email: "cliente@example.com" });
-    expect(dbMocks.provisionClientCredentials).toHaveBeenCalledWith(expect.objectContaining({ clientId: 3, passwordHash: expect.stringMatching(/^scrypt\$/) }));
-    expect(dbMocks.provisionClientCredentials.mock.calls[0]?.[0]?.passwordHash).not.toContain("SenhaAion2026");
+    await expect(caller.clients.createInvite({ clientId: 3 })).resolves.toEqual(expect.objectContaining({ token: inviteToken, email: invitedClient.email }));
+    expect(dbMocks.createClientAccountInvite).toHaveBeenCalledWith({ clientId: 3, consultorId: 11 });
   });
 
-  it("impede que um consultor provisione acesso para cliente de outra carteira", async () => {
-    dbMocks.getClientById.mockResolvedValue({ ...client, consultorId: 99 });
+  it("impede a emissão por um consultor que não responde pela carteira", async () => {
+    dbMocks.createClientAccountInvite.mockResolvedValue(undefined);
     const caller = appRouter.createCaller(createConsultorContext());
-    await expect(caller.clients.provisionAccess({ clientId: 3, password: "SenhaAion2026" })).rejects.toMatchObject({ code: "FORBIDDEN" });
-    expect(dbMocks.provisionClientCredentials).not.toHaveBeenCalled();
+    await expect(caller.clients.createInvite({ clientId: 3 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("retorna o estado de expiração sem revelar informações cadastrais", async () => {
+    dbMocks.getAccountInvitePreview.mockResolvedValue({ state: "expirado" });
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.auth.invitePreview({ token: inviteToken })).resolves.toEqual({ state: "expirado" });
+  });
+
+  it("revoga um convite pendente somente para a carteira autorizada", async () => {
+    dbMocks.revokeClientAccountInvite.mockResolvedValue(true);
+    const caller = appRouter.createCaller(createConsultorContext());
+    await expect(caller.clients.revokeInvite({ clientId: 3 })).resolves.toEqual({ success: true });
+    expect(dbMocks.revokeClientAccountInvite).toHaveBeenCalledWith({ clientId: 3, consultorId: 11 });
+  });
+
+  it("aceita a ativação pessoal com senha em hash e preferências sem criar lançamentos", async () => {
+    dbMocks.acceptAccountInvite.mockResolvedValue({ state: "aceito", userId: 7, clientId: 3 });
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.auth.acceptInvite({
+      token: inviteToken,
+      password: "SenhaAion2026",
+      profile: { profileType: "pessoal", personalGoal: "Organizar gastos", incomeRange: "Até R$ 2 mil" },
+    })).resolves.toEqual({ success: true });
+    expect(dbMocks.acceptAccountInvite).toHaveBeenCalledWith(expect.objectContaining({
+      token: inviteToken,
+      passwordHash: expect.stringMatching(/^scrypt\$/),
+      onboarding: { profileType: "pessoal", personalGoal: "Organizar gastos", incomeRange: "Até R$ 2 mil" },
+    }));
+    expect(dbMocks.acceptAccountInvite.mock.calls[0]?.[0]?.passwordHash).not.toContain("SenhaAion2026");
+  });
+
+  it("aceita a ativação empresarial apenas com CNPJ válido e preserva a jornada", async () => {
+    const businessClient = { ...invitedClient, businessType: "mei" as const };
+    dbMocks.getAccountInvitePreview.mockResolvedValue({ state: "valido", invite: { email: invitedClient.email, expiresAt: new Date(Date.now() + 86400000) }, client: businessClient });
+    dbMocks.acceptAccountInvite.mockResolvedValue({ state: "aceito", userId: 7, clientId: 3 });
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.auth.acceptInvite({
+      token: inviteToken,
+      password: "SenhaAion2026",
+      profile: { profileType: "empresarial", legalName: "Aion Serviços LTDA", cpfCnpj: "04.252.011/0001-10", segment: "Serviços", revenueRange: "Até R$ 50 mil", financialControlMethod: "Planilha" },
+    })).resolves.toEqual({ success: true });
+    expect(dbMocks.acceptAccountInvite).toHaveBeenCalledWith(expect.objectContaining({ onboarding: expect.objectContaining({ profileType: "empresarial", cpfCnpj: "04252011000110" }) }));
+  });
+
+  it("bloqueia reutilização de convite já aceito", async () => {
+    dbMocks.getAccountInvitePreview.mockResolvedValue({ state: "aceito" });
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.auth.acceptInvite({
+      token: inviteToken,
+      password: "SenhaAion2026",
+      profile: { profileType: "pessoal", personalGoal: "Poupar", incomeRange: "Até R$ 2 mil" },
+    })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(dbMocks.acceptAccountInvite).not.toHaveBeenCalled();
   });
 });
 

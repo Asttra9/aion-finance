@@ -61,6 +61,56 @@ export type Client = typeof clients.$inferSelect;
 export type InsertClient = typeof clients.$inferInsert;
 
 /**
+ * Convites de ativação são emitidos exclusivamente pelo consultor responsável.
+ * O token bruto nunca é persistido: somente seu hash é usado para validação.
+ */
+export const accountInvites = mysqlTable(
+  "account_invites",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    clientId: int("clientId").notNull(),
+    consultorId: int("consultorId").notNull(),
+    email: varchar("email", { length: 320 }).notNull(),
+    tokenHash: varchar("tokenHash", { length: 64 }).notNull(),
+    status: mysqlEnum("status", ["pendente", "aceito", "revogado", "expirado"]).default("pendente").notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    acceptedAt: timestamp("acceptedAt"),
+    revokedAt: timestamp("revokedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("account_invites_token_hash_unique").on(table.tokenHash)],
+);
+
+export type AccountInvite = typeof accountInvites.$inferSelect;
+export type InsertAccountInvite = typeof accountInvites.$inferInsert;
+
+/**
+ * Perfil mínimo coletado no primeiro acesso. Não representa lançamentos ou
+ * diagnóstico financeiro completo e permanece separado do cadastro central.
+ */
+export const clientOnboardingProfiles = mysqlTable(
+  "client_onboarding_profiles",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    clientId: int("clientId").notNull(),
+    profileType: mysqlEnum("profileType", ["pessoal", "empresarial"]).notNull(),
+    personalGoal: varchar("personalGoal", { length: 120 }),
+    incomeRange: varchar("incomeRange", { length: 80 }),
+    legalName: varchar("legalName", { length: 255 }),
+    segment: varchar("segment", { length: 120 }),
+    revenueRange: varchar("revenueRange", { length: 80 }),
+    financialControlMethod: varchar("financialControlMethod", { length: 120 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("client_onboarding_profiles_client_unique").on(table.clientId)],
+);
+
+export type ClientOnboardingProfile = typeof clientOnboardingProfiles.$inferSelect;
+export type InsertClientOnboardingProfile = typeof clientOnboardingProfiles.$inferInsert;
+
+/**
  * Transaction categories for OFX import and reconciliation
  */
 export const transactionCategories = mysqlTable("transaction_categories", {

@@ -122,6 +122,62 @@ export const appRouter = router({
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
       return { success: true } as const;
     }),
+    invitePreview: publicProcedure
+      .input(z.object({ token: z.string().min(40).max(200) }))
+      .query(async ({ input }) => {
+        const preview = await db.getAccountInvitePreview(input.token);
+        if (!preview || preview.state !== "valido") return { state: preview?.state ?? "invalido" } as const;
+        return {
+          state: "valido" as const,
+          client: {
+            name: preview.client.name,
+            email: preview.invite.email,
+            businessType: preview.client.businessType,
+            businessName: preview.client.businessName,
+            cpfCnpj: preview.client.cpfCnpj,
+          },
+          expiresAt: preview.invite.expiresAt,
+        };
+      }),
+    acceptInvite: publicProcedure
+      .input(z.object({
+        token: z.string().min(40).max(200),
+        password: z.string().min(10).max(256),
+        profile: z.discriminatedUnion("profileType", [
+          z.object({
+            profileType: z.literal("pessoal"),
+            personalGoal: z.string().trim().min(2).max(120),
+            incomeRange: z.string().trim().min(2).max(80),
+          }),
+          z.object({
+            profileType: z.literal("empresarial"),
+            legalName: z.string().trim().min(2).max(255),
+            cpfCnpj: cpfCnpj.refine((value) => value.length > 0, "Informe um CNPJ válido."),
+            segment: z.string().trim().min(2).max(120),
+            revenueRange: z.string().trim().min(2).max(80),
+            financialControlMethod: z.string().trim().min(2).max(120),
+          }),
+        ]),
+      }))
+      .mutation(async ({ input }) => {
+        const preview = await db.getAccountInvitePreview(input.token);
+        if (!preview || preview.state !== "valido") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Este convite não está mais disponível." });
+        }
+        const expectedProfileType = preview.client.businessType === "pessoal" ? "pessoal" : "empresarial";
+        if (input.profile.profileType !== expectedProfileType) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "A jornada deste convite não pode ser alterada." });
+        }
+        const accepted = await db.acceptAccountInvite({
+          token: input.token,
+          passwordHash: await hashLocalPassword(input.password),
+          onboarding: input.profile,
+        });
+        if (accepted.state !== "aceito") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Este convite não está mais disponível." });
+        }
+        return { success: true } as const;
+      }),
   }),
 
   clients: router({
@@ -160,19 +216,28 @@ export const appRouter = router({
         status: input.status,
       });
     }),
-    provisionAccess: consultorProcedure
-      .input(z.object({ clientId: z.number(), password: z.string().min(10).max(256) }))
+    createInvite: consultorProcedure
+      .input(z.object({ clientId: z.number() }))
       .mutation(async ({ input, ctx }) => {
-        const client = await db.getClientById(input.clientId);
-        if (!client || client.consultorId !== ctx.user.id) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode configurar o acesso deste cliente." });
-        }
         try {
-          return await db.provisionClientCredentials({ clientId: client.id, passwordHash: await hashLocalPassword(input.password) });
+          const invite = await db.createClientAccountInvite({ clientId: input.clientId, consultorId: ctx.user.id });
+          if (!invite) throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode convidar este cliente." });
+          return {
+            token: invite.token,
+            expiresAt: invite.expiresAt,
+            email: invite.email,
+          };
         } catch (error) {
-          const message = error instanceof Error ? error.message : "Não foi possível configurar o acesso do cliente.";
-          throw new TRPCError({ code: "BAD_REQUEST", message });
+          if (error instanceof TRPCError) throw error;
+          throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Não foi possível gerar o convite." });
         }
+      }),
+    revokeInvite: consultorProcedure
+      .input(z.object({ clientId: z.number() }))
+      .mutation(async ({ input, ctx }) => {
+        const revoked = await db.revokeClientAccountInvite({ clientId: input.clientId, consultorId: ctx.user.id });
+        if (!revoked) throw new TRPCError({ code: "NOT_FOUND", message: "Nenhum convite ativo foi encontrado para este cliente." });
+        return { success: true } as const;
       }),
   }),
 

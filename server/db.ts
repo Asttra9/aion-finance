@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { inArray } from "drizzle-orm";
 import {
   InsertUser,
@@ -19,6 +19,8 @@ import {
   serviceSubscriptions,
   recurringTransactions,
   recurringTransactionOccurrences,
+  accountInvites,
+  clientOnboardingProfiles,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { buildPortfolioMonthlyTrend } from "./portfolioTrend";
@@ -183,6 +185,157 @@ export async function registerFailedLocalLogin(userId: number, currentAttempts: 
   const failedLoginAttempts = currentAttempts + 1;
   const lockedUntil = failedLoginAttempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
   await db.update(users).set({ failedLoginAttempts, lockedUntil }).where(eq(users.id, userId));
+}
+
+const INVITE_VALIDITY_MS = 1000 * 60 * 60 * 24 * 7;
+
+export function hashAccountInviteToken(token: string) {
+  return createHash("sha256").update(token).digest("hex");
+}
+
+export async function createClientAccountInvite(input: { clientId: number; consultorId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível.");
+
+  const client = await getClientById(input.clientId);
+  if (!client || client.consultorId !== input.consultorId) return undefined;
+  if (!client.email) throw new Error("Cadastre um e-mail para gerar o convite de acesso.");
+
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + INVITE_VALIDITY_MS);
+  const token = randomBytes(32).toString("base64url");
+  const email = client.email.trim().toLowerCase();
+
+  await db
+    .update(accountInvites)
+    .set({ status: "revogado", revokedAt: now })
+    .where(and(eq(accountInvites.clientId, client.id), eq(accountInvites.status, "pendente")));
+
+  const result = await db.insert(accountInvites).values({
+    clientId: client.id,
+    consultorId: input.consultorId,
+    email,
+    tokenHash: hashAccountInviteToken(token),
+    status: "pendente",
+    expiresAt,
+  });
+
+  return { inviteId: Number(result[0].insertId), token, email, expiresAt, client };
+}
+
+export async function revokeClientAccountInvite(input: { clientId: number; consultorId: number }) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível.");
+  const client = await getClientById(input.clientId);
+  if (!client || client.consultorId !== input.consultorId) return false;
+
+  const result = await db
+    .update(accountInvites)
+    .set({ status: "revogado", revokedAt: new Date() })
+    .where(and(eq(accountInvites.clientId, client.id), eq(accountInvites.status, "pendente")));
+  return Number(result[0].affectedRows ?? 0) > 0;
+}
+
+export async function getAccountInvitePreview(token: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+
+  const result = await db
+    .select()
+    .from(accountInvites)
+    .where(eq(accountInvites.tokenHash, hashAccountInviteToken(token)))
+    .limit(1);
+  const invite = result[0];
+  if (!invite) return { state: "invalido" as const };
+  if (invite.status !== "pendente") return { state: invite.status as "aceito" | "revogado" | "expirado" };
+  if (invite.expiresAt.getTime() <= Date.now()) {
+    await db.update(accountInvites).set({ status: "expirado" }).where(eq(accountInvites.id, invite.id));
+    return { state: "expirado" as const };
+  }
+
+  const client = await getClientById(invite.clientId);
+  if (!client) return { state: "invalido" as const };
+  return { state: "valido" as const, invite, client };
+}
+
+export async function acceptAccountInvite(input: {
+  token: string;
+  passwordHash: string;
+  onboarding: {
+    profileType: "pessoal" | "empresarial";
+    personalGoal?: string;
+    incomeRange?: string;
+    legalName?: string;
+    cpfCnpj?: string;
+    segment?: string;
+    revenueRange?: string;
+    financialControlMethod?: string;
+  };
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível.");
+
+  const preview = await getAccountInvitePreview(input.token);
+  if (!preview || preview.state !== "valido") return { state: preview?.state ?? "invalido" } as const;
+
+  const { invite, client } = preview;
+  const now = new Date();
+  let userId = client.userId;
+  if (userId) {
+    await db.update(users).set({
+      email: invite.email,
+      name: client.name,
+      passwordHash: input.passwordHash,
+      passwordUpdatedAt: now,
+      failedLoginAttempts: 0,
+      lockedUntil: null,
+      role: "cliente",
+      loginMethod: "senha_local",
+    }).where(eq(users.id, userId));
+  } else {
+    const created = await db.insert(users).values({
+      openId: `local-client-${client.id}-${randomUUID()}`,
+      name: client.name,
+      email: invite.email,
+      passwordHash: input.passwordHash,
+      passwordUpdatedAt: now,
+      failedLoginAttempts: 0,
+      role: "cliente",
+      loginMethod: "senha_local",
+      lastSignedIn: now,
+    });
+    userId = Number(created[0].insertId);
+    await db.update(clients).set({ userId }).where(eq(clients.id, client.id));
+  }
+
+  await db.insert(clientOnboardingProfiles).values({
+    clientId: client.id,
+    profileType: input.onboarding.profileType,
+    personalGoal: input.onboarding.personalGoal ?? null,
+    incomeRange: input.onboarding.incomeRange ?? null,
+    legalName: input.onboarding.legalName ?? null,
+    segment: input.onboarding.segment ?? null,
+    revenueRange: input.onboarding.revenueRange ?? null,
+    financialControlMethod: input.onboarding.financialControlMethod ?? null,
+  }).onDuplicateKeyUpdate({ set: {
+    profileType: input.onboarding.profileType,
+    personalGoal: input.onboarding.personalGoal ?? null,
+    incomeRange: input.onboarding.incomeRange ?? null,
+    legalName: input.onboarding.legalName ?? null,
+    segment: input.onboarding.segment ?? null,
+    revenueRange: input.onboarding.revenueRange ?? null,
+    financialControlMethod: input.onboarding.financialControlMethod ?? null,
+  } });
+
+  if (input.onboarding.cpfCnpj || input.onboarding.legalName) {
+    await db.update(clients).set({
+      cpfCnpj: input.onboarding.cpfCnpj || client.cpfCnpj,
+      businessName: input.onboarding.legalName || client.businessName,
+    }).where(eq(clients.id, client.id));
+  }
+
+  await db.update(accountInvites).set({ status: "aceito", acceptedAt: now }).where(and(eq(accountInvites.id, invite.id), eq(accountInvites.status, "pendente")));
+  return { state: "aceito" as const, userId, clientId: client.id };
 }
 
 // ===== CLIENT QUERIES =====

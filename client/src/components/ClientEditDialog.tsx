@@ -62,8 +62,8 @@ function makeDraft(client: EditableClient): ClientDraft {
 export function ClientEditDialog({ client, open, onOpenChange }: { client: EditableClient; open: boolean; onOpenChange: (open: boolean) => void }) {
   const utils = trpc.useUtils();
   const [draft, setDraft] = useState<ClientDraft>(() => makeDraft(client));
-  const [accessPassword, setAccessPassword] = useState("");
-  const [accessPasswordConfirmation, setAccessPasswordConfirmation] = useState("");
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteExpiry, setInviteExpiry] = useState<Date | null>(null);
   const [accessMessage, setAccessMessage] = useState<string | null>(null);
   const updateClient = trpc.clients.update.useMutation({
     onSuccess: async () => {
@@ -71,11 +71,19 @@ export function ClientEditDialog({ client, open, onOpenChange }: { client: Edita
       onOpenChange(false);
     },
   });
-  const provisionAccess = trpc.clients.provisionAccess.useMutation({
+  const createInvite = trpc.clients.createInvite.useMutation({
+    onSuccess: (invite) => {
+      setInviteLink(`${window.location.origin}/ativar-conta?token=${encodeURIComponent(invite.token)}`);
+      setInviteExpiry(new Date(invite.expiresAt));
+      setAccessMessage("Convite gerado. Copie o link e envie-o ao cliente por um canal seguro.");
+    },
+    onError: (error) => setAccessMessage(error.message),
+  });
+  const revokeInvite = trpc.clients.revokeInvite.useMutation({
     onSuccess: () => {
-      setAccessPassword("");
-      setAccessPasswordConfirmation("");
-      setAccessMessage("Acesso configurado. Compartilhe a senha inicial com o cliente por um canal seguro.");
+      setInviteLink(null);
+      setInviteExpiry(null);
+      setAccessMessage("Convite revogado. O link anterior não pode mais ser utilizado.");
     },
     onError: (error) => setAccessMessage(error.message),
   });
@@ -83,8 +91,8 @@ export function ClientEditDialog({ client, open, onOpenChange }: { client: Edita
   useEffect(() => {
     if (open) {
       setDraft(makeDraft(client));
-      setAccessPassword("");
-      setAccessPasswordConfirmation("");
+      setInviteLink(null);
+      setInviteExpiry(null);
       setAccessMessage(null);
     }
   }, [client, open]);
@@ -113,21 +121,23 @@ export function ClientEditDialog({ client, open, onOpenChange }: { client: Edita
     });
   };
 
-  const handleProvisionAccess = () => {
+  const handleGenerateInvite = () => {
     if (!client.email) {
-      setAccessMessage("Cadastre um e-mail para liberar o acesso deste cliente.");
-      return;
-    }
-    if (accessPassword.length < 10 || !/[A-Za-z]/.test(accessPassword) || !/\d/.test(accessPassword)) {
-      setAccessMessage("Use uma senha com ao menos 10 caracteres, letras e números.");
-      return;
-    }
-    if (accessPassword !== accessPasswordConfirmation) {
-      setAccessMessage("As senhas não coincidem.");
+      setAccessMessage("Cadastre e salve um e-mail antes de gerar o convite de ativação.");
       return;
     }
     setAccessMessage(null);
-    provisionAccess.mutate({ clientId: client.id, password: accessPassword });
+    createInvite.mutate({ clientId: client.id });
+  };
+
+  const handleCopyInvite = async () => {
+    if (!inviteLink) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
+      setAccessMessage("Link copiado. Envie-o ao cliente por um canal seguro.");
+    } catch {
+      setAccessMessage("Copie o link manualmente pelo campo abaixo.");
+    }
   };
 
   return (
@@ -219,20 +229,15 @@ export function ClientEditDialog({ client, open, onOpenChange }: { client: Edita
             <section className="rounded-xl border border-border bg-muted/30 p-4" aria-labelledby="client-access-title">
               <div className="flex flex-col gap-1">
                 <h3 id="client-access-title" className="text-sm font-semibold text-foreground">Acesso do cliente</h3>
-                <p className="text-sm leading-relaxed text-muted-foreground">Defina ou redefina a senha de acesso. A senha anterior não é exibida nem recuperada pela Aion.</p>
+                <p className="text-sm leading-relaxed text-muted-foreground">O acesso inicial é criado exclusivamente por convite. O cliente define a própria senha durante a ativação.</p>
               </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="client-access-password">Nova senha</Label>
-                  <Input id="client-access-password" type="password" value={accessPassword} onChange={(event) => setAccessPassword(event.target.value)} autoComplete="new-password" minLength={10} disabled={!client.email || provisionAccess.isPending} />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="client-access-password-confirmation">Confirmar nova senha</Label>
-                  <Input id="client-access-password-confirmation" type="password" value={accessPasswordConfirmation} onChange={(event) => setAccessPasswordConfirmation(event.target.value)} autoComplete="new-password" minLength={10} disabled={!client.email || provisionAccess.isPending} />
-                </div>
+              {!client.email ? <p className="mt-3 text-xs font-medium text-destructive">Informe e salve um e-mail no cadastro antes de gerar um convite.</p> : null}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button type="button" variant="outline" onClick={handleGenerateInvite} disabled={!client.email || createInvite.isPending}>{createInvite.isPending ? "Gerando convite..." : "Gerar convite"}</Button>
+                {inviteLink ? <Button type="button" variant="outline" onClick={handleCopyInvite}>Copiar link</Button> : null}
+                {inviteLink ? <Button type="button" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => revokeInvite.mutate({ clientId: client.id })} disabled={revokeInvite.isPending}>{revokeInvite.isPending ? "Revogando..." : "Revogar convite"}</Button> : null}
               </div>
-              {!client.email ? <p className="mt-3 text-xs font-medium text-destructive">Informe e salve um e-mail no cadastro antes de liberar o acesso.</p> : null}
-              <Button type="button" variant="outline" className="mt-4" onClick={handleProvisionAccess} disabled={!client.email || provisionAccess.isPending}>{provisionAccess.isPending ? "Configurando acesso..." : "Configurar acesso"}</Button>
+              {inviteLink ? <div className="mt-4 space-y-2 rounded-lg border border-border bg-background p-3"><Label htmlFor="client-invite-link">Link de ativação</Label><Input id="client-invite-link" value={inviteLink} readOnly onFocus={(event) => event.currentTarget.select()} /><p className="text-xs text-muted-foreground">Válido até {inviteExpiry?.toLocaleString("pt-BR") ?? "—"}. O link expira em sete dias e só pode ser utilizado uma vez.</p></div> : null}
               {accessMessage ? <p role="status" className="mt-3 text-sm font-medium text-foreground">{accessMessage}</p> : null}
             </section>
           </div>

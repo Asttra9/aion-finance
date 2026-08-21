@@ -241,3 +241,24 @@
 - [x] Implementar login por e-mail e senha com sessão HTTP-only expirada e encerramento seguro.
 - [x] Permitir que somente o Consultor Aion provisione ou redefina o acesso de clientes.
 - [x] Exibir recuperação de acesso orientada ao suporte, sem expor fluxos de redefinição inseguros.
+- [x] Corrigir o logout para redirecionar diretamente à tela de acesso, sem erro 404.
+- [x] Criar convites seguros para novas contas MEI/Microempresa e Pessoal/Família, gerados somente pelo Consultor Aion.
+- [x] Criar página pública de ativação por convite para cadastro inicial e definição de senha.
+- [x] Expirar, invalidar e impedir reutilização de convites de criação de conta.
+- [x] Diferenciar a ativação PF/Pessoal com dados individuais e preferências de organização financeira.
+- [x] Diferenciar a ativação PJ/MEI com razão social, dados empresariais e informações operacionais essenciais.
+- [x] Coletar na ativação PF objetivo financeiro e faixa de renda sem exigir lançamentos iniciais.
+- [x] Coletar na ativação PJ/MEI razão social, CNPJ, segmento, faixa de faturamento e método de controle financeiro.
+- [x] Cobrir convite, ativação, expiração, revogação, uso único e logout com testes automatizados.
+- [x] Validar typecheck, testes, build e telas públicas de ativação antes do checkpoint.
+- [ ] Salvar checkpoint da entrega de logout, convites e ativação de contas.
+
+## Notificações personalizadas
+
+- [ ] Definir canais, perfis, gatilhos e regras de preferência para notificações personalizadas.
+- [ ] Implementar notificações personalizadas aprovadas para as jornadas da Aion Finance.
+- [ ] Cobrir e validar o novo fluxo de notificações antes do checkpoint.
+
+## Prioridade atual — autenticação
+
+- [x] Concluir a validação final do login, logout e ativação de conta por convite antes de iniciar notificações personalizadas.
