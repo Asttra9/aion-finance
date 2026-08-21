@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label";
 import { startLogin } from "@/const";
 import { ArrowRight, Building2, Eye, EyeOff, HeartHandshake, LockKeyhole, ShieldCheck } from "lucide-react";
 import { useState } from "react";
+import { trpc } from "@/lib/trpc";
 
 const AION_MARK_URL = "/manus-storage/aion-logo-dark_9a4b34db.png";
 
@@ -12,6 +13,9 @@ type Journey = "empresarial" | "pessoal";
 export default function Acesso() {
   const [journey, setJourney] = useState<Journey>("empresarial");
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [accessMessage, setAccessMessage] = useState<string | null>(null);
 
   const isBusiness = journey === "empresarial";
   const title = isBusiness ? "Acesse o seu negócio." : "Cuide da sua vida financeira.";
@@ -19,9 +23,17 @@ export default function Acesso() {
     ? "Caixa, obrigações e decisões do seu micro negócio em uma só visão."
     : "Gastos, contas e metas da sua família, com mais clareza todos os dias.";
 
-  const continueToSecureLogin = () => {
-    window.localStorage.setItem("aion-selected-journey", journey);
-    startLogin();
+  const loginMutation = trpc.auth.localLogin.useMutation({
+    onSuccess: () => {
+      window.location.assign("/");
+    },
+    onError: (error) => setAccessMessage(error.message),
+  });
+
+  const continueToSecureLogin = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAccessMessage(null);
+    loginMutation.mutate({ email, password });
   };
 
   return (
@@ -62,14 +74,16 @@ export default function Acesso() {
               </div>
             </div>
 
-            <form className="mt-7 space-y-5" onSubmit={(event) => { event.preventDefault(); continueToSecureLogin(); }}>
-              <div className="space-y-2"><Label htmlFor="email">E-mail</Label><Input id="email" type="email" placeholder="voce@exemplo.com" autoComplete="email" className="h-12 rounded-xl border-[#ddd5d0] bg-white" /></div>
-              <div className="space-y-2"><div className="flex items-center justify-between"><Label htmlFor="password">Senha</Label><button type="button" className="text-xs font-bold text-[#b21d31] hover:underline">Esqueci minha senha</button></div><div className="relative"><Input id="password" type={showPassword ? "text" : "password"} placeholder="Digite sua senha" autoComplete="current-password" className="h-12 rounded-xl border-[#ddd5d0] bg-white pr-12" /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted-foreground hover:text-[#b21d31]">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div>
-              <Button type="submit" className="min-h-12 w-full rounded-xl bg-[#b21d31] font-extrabold hover:bg-[#8f1727]">Continuar com segurança <ArrowRight className="ml-2 h-4 w-4" /></Button>
+            <form className="mt-7 space-y-5" onSubmit={continueToSecureLogin}>
+              <div className="space-y-2"><Label htmlFor="email">E-mail</Label><Input id="email" value={email} onChange={(event) => setEmail(event.target.value)} type="email" placeholder="voce@exemplo.com" autoComplete="email" required disabled={loginMutation.isPending} className="h-12 rounded-xl border-[#ddd5d0] bg-white" /></div>
+              <div className="space-y-2"><div className="flex items-center justify-between"><Label htmlFor="password">Senha</Label><button type="button" onClick={() => setAccessMessage("Para redefinir sua senha, entre em contato com o suporte da Aion.")} className="text-xs font-bold text-[#b21d31] hover:underline">Esqueci minha senha</button></div><div className="relative"><Input id="password" value={password} onChange={(event) => setPassword(event.target.value)} type={showPassword ? "text" : "password"} placeholder="Digite sua senha" autoComplete="current-password" required disabled={loginMutation.isPending} className="h-12 rounded-xl border-[#ddd5d0] bg-white pr-12" /><button type="button" aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"} onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted-foreground hover:text-[#b21d31]">{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button></div></div>
+              {accessMessage ? <p role="alert" className="rounded-xl border border-[#b21d31]/20 bg-[#f9e8eb] px-3 py-2 text-sm font-medium text-[#8f1727]">{accessMessage}</p> : null}
+              <Button type="submit" disabled={loginMutation.isPending} className="min-h-12 w-full rounded-xl bg-[#b21d31] font-extrabold hover:bg-[#8f1727]">{loginMutation.isPending ? "Validando acesso…" : "Entrar com e-mail e senha"} <ArrowRight className="ml-2 h-4 w-4" /></Button>
             </form>
 
             <button type="button" onClick={() => setJourney(isBusiness ? "pessoal" : "empresarial")} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-[#e5dfda] px-4 py-3 text-sm font-bold text-[#5f5956] transition hover:border-[#b21d31]/35 hover:bg-[#f9e8eb] hover:text-[#b21d31]">{isBusiness ? <><HeartHandshake className="h-4 w-4" />Entrar como Pessoal / Família</> : <><Building2 className="h-4 w-4" />Entrar como MEI / Microempresa</>}</button>
-            <p className="mt-6 flex items-center justify-center gap-2 text-center text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="h-3.5 w-3.5 shrink-0" />Ao continuar, seu acesso será confirmado no ambiente seguro da Aion.</p>
+            <button type="button" onClick={startLogin} className="mt-5 w-full text-center text-xs font-bold text-[#5f5956] underline-offset-4 hover:text-[#b21d31] hover:underline">Consultor Aion: entrar com conta corporativa</button>
+            <p className="mt-4 flex items-center justify-center gap-2 text-center text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="h-3.5 w-3.5 shrink-0" />A jornada é liberada somente após a validação das suas credenciais.</p>
           </div>
         </section>
       </div>

@@ -1,5 +1,6 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
+import { sdk } from "./_core/sdk";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
@@ -12,6 +13,9 @@ import { buildFinancialReportPdf } from "./reportPdf";
 import { filterEntriesByMonth } from "./financialCalculations";
 import { isValidMoney, parseMoney, toDecimal } from "./financialValues";
 import { isValidCpfCnpj, normalizeCpfCnpj } from "../shared/brazilianDocument";
+import { hashLocalPassword, verifyLocalPassword } from "./localPassword";
+
+const LOCAL_SESSION_MS = 1000 * 60 * 60 * 12;
 
 const consultorProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "consultor_aion" && ctx.user.role !== "admin") {
@@ -91,6 +95,28 @@ export const appRouter = router({
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
     updateProfile: protectedProcedure.input(z.object({ name: z.string().trim().min(2).max(120) })).mutation(({ input, ctx }) => db.updateUserProfile(ctx.user.id, input)),
+    localLogin: publicProcedure
+      .input(z.object({ email: z.string().trim().email().max(320), password: z.string().min(1).max(256) }))
+      .mutation(async ({ input, ctx }) => {
+        const invalidCredentials = () => new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha inválidos." });
+        const user = await db.getUserByEmail(input.email);
+        if (!user || !user.passwordHash) throw invalidCredentials();
+
+        if (user.lockedUntil && user.lockedUntil.getTime() > Date.now()) {
+          throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "Muitas tentativas. Aguarde alguns minutos antes de tentar novamente." });
+        }
+
+        if (!(await verifyLocalPassword(input.password, user.passwordHash))) {
+          await db.registerFailedLocalLogin(user.id, user.failedLoginAttempts);
+          throw invalidCredentials();
+        }
+
+        await db.registerSuccessfulLocalLogin(user.id);
+        const sessionToken = await sdk.createSessionToken(user.openId, { name: user.name ?? "", expiresInMs: LOCAL_SESSION_MS });
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: LOCAL_SESSION_MS });
+        return { success: true } as const;
+      }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
@@ -134,6 +160,20 @@ export const appRouter = router({
         status: input.status,
       });
     }),
+    provisionAccess: consultorProcedure
+      .input(z.object({ clientId: z.number(), password: z.string().min(10).max(256) }))
+      .mutation(async ({ input, ctx }) => {
+        const client = await db.getClientById(input.clientId);
+        if (!client || client.consultorId !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Você não pode configurar o acesso deste cliente." });
+        }
+        try {
+          return await db.provisionClientCredentials({ clientId: client.id, passwordHash: await hashLocalPassword(input.password) });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Não foi possível configurar o acesso do cliente.";
+          throw new TRPCError({ code: "BAD_REQUEST", message });
+        }
+      }),
   }),
 
   consultantMetrics: router({

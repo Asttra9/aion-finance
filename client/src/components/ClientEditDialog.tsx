@@ -62,15 +62,31 @@ function makeDraft(client: EditableClient): ClientDraft {
 export function ClientEditDialog({ client, open, onOpenChange }: { client: EditableClient; open: boolean; onOpenChange: (open: boolean) => void }) {
   const utils = trpc.useUtils();
   const [draft, setDraft] = useState<ClientDraft>(() => makeDraft(client));
+  const [accessPassword, setAccessPassword] = useState("");
+  const [accessPasswordConfirmation, setAccessPasswordConfirmation] = useState("");
+  const [accessMessage, setAccessMessage] = useState<string | null>(null);
   const updateClient = trpc.clients.update.useMutation({
     onSuccess: async () => {
       await utils.clients.list.invalidate();
       onOpenChange(false);
     },
   });
+  const provisionAccess = trpc.clients.provisionAccess.useMutation({
+    onSuccess: () => {
+      setAccessPassword("");
+      setAccessPasswordConfirmation("");
+      setAccessMessage("Acesso configurado. Compartilhe a senha inicial com o cliente por um canal seguro.");
+    },
+    onError: (error) => setAccessMessage(error.message),
+  });
 
   useEffect(() => {
-    if (open) setDraft(makeDraft(client));
+    if (open) {
+      setDraft(makeDraft(client));
+      setAccessPassword("");
+      setAccessPasswordConfirmation("");
+      setAccessMessage(null);
+    }
   }, [client, open]);
 
   const updateDraft = <Key extends keyof ClientDraft>(key: Key, value: ClientDraft[Key]) => {
@@ -95,6 +111,23 @@ export function ClientEditDialog({ client, open, onOpenChange }: { client: Edita
       notes: emptyToNull(draft.notes),
       status: draft.status,
     });
+  };
+
+  const handleProvisionAccess = () => {
+    if (!client.email) {
+      setAccessMessage("Cadastre um e-mail para liberar o acesso deste cliente.");
+      return;
+    }
+    if (accessPassword.length < 10 || !/[A-Za-z]/.test(accessPassword) || !/\d/.test(accessPassword)) {
+      setAccessMessage("Use uma senha com ao menos 10 caracteres, letras e números.");
+      return;
+    }
+    if (accessPassword !== accessPasswordConfirmation) {
+      setAccessMessage("As senhas não coincidem.");
+      return;
+    }
+    setAccessMessage(null);
+    provisionAccess.mutate({ clientId: client.id, password: accessPassword });
   };
 
   return (
@@ -181,6 +214,26 @@ export function ClientEditDialog({ client, open, onOpenChange }: { client: Edita
                 <Label htmlFor="edit-client-notes">Observações</Label>
                 <Textarea id="edit-client-notes" value={draft.notes} onChange={(event) => updateDraft("notes", event.target.value)} maxLength={2000} rows={3} />
               </div>
+            </section>
+
+            <section className="rounded-xl border border-border bg-muted/30 p-4" aria-labelledby="client-access-title">
+              <div className="flex flex-col gap-1">
+                <h3 id="client-access-title" className="text-sm font-semibold text-foreground">Acesso do cliente</h3>
+                <p className="text-sm leading-relaxed text-muted-foreground">Defina ou redefina a senha de acesso. A senha anterior não é exibida nem recuperada pela Aion.</p>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="client-access-password">Nova senha</Label>
+                  <Input id="client-access-password" type="password" value={accessPassword} onChange={(event) => setAccessPassword(event.target.value)} autoComplete="new-password" minLength={10} disabled={!client.email || provisionAccess.isPending} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="client-access-password-confirmation">Confirmar nova senha</Label>
+                  <Input id="client-access-password-confirmation" type="password" value={accessPasswordConfirmation} onChange={(event) => setAccessPasswordConfirmation(event.target.value)} autoComplete="new-password" minLength={10} disabled={!client.email || provisionAccess.isPending} />
+                </div>
+              </div>
+              {!client.email ? <p className="mt-3 text-xs font-medium text-destructive">Informe e salve um e-mail no cadastro antes de liberar o acesso.</p> : null}
+              <Button type="button" variant="outline" className="mt-4" onClick={handleProvisionAccess} disabled={!client.email || provisionAccess.isPending}>{provisionAccess.isPending ? "Configurando acesso..." : "Configurar acesso"}</Button>
+              {accessMessage ? <p role="status" className="mt-3 text-sm font-medium text-foreground">{accessMessage}</p> : null}
             </section>
           </div>
 

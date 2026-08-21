@@ -235,3 +235,9 @@
 - [x] Corrigir a proporção visual dos itens ativos quando a barra lateral estiver recolhida.
 - [x] Ancorar a tendência consolidada do Consultor Aion no último período com movimentações quando não houver dados no mês corrente.
 - [x] Ajustar a escala monetária dos gráficos consultivos para valores abaixo de mil reais permanecerem legíveis.
+- [x] Substituir o acesso aparente por login funcional com validação de credenciais e sessão protegida.
+- [x] Preservar o redirecionamento por jornada somente após autenticação bem-sucedida.
+- [x] Armazenar hashes de senha e estado de acesso no cadastro de usuários, sem criar senhas padrão.
+- [x] Implementar login por e-mail e senha com sessão HTTP-only expirada e encerramento seguro.
+- [x] Permitir que somente o Consultor Aion provisione ou redefina o acesso de clientes.
+- [x] Exibir recuperação de acesso orientada ao suporte, sem expor fluxos de redefinição inseguros.

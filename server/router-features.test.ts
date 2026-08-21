@@ -46,6 +46,7 @@ const dbMocks = vi.hoisted(() => ({
   getRecurringOccurrenceById: vi.fn(),
   confirmRecurringOccurrence: vi.fn(),
   updateRecurringOccurrenceStatus: vi.fn(),
+  provisionClientCredentials: vi.fn(),
 }));
 
 vi.mock("./db", async () => {
@@ -92,6 +93,28 @@ function createClientContext(userId = 7): TrpcContext {
 }
 
 const client = { id: 3, consultorId: 11, userId: 7, name: "Cliente" };
+
+describe("clients.provisionAccess", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.getClientById.mockResolvedValue({ ...client, email: "cliente@example.com" });
+    dbMocks.provisionClientCredentials.mockResolvedValue({ userId: 7, email: "cliente@example.com" });
+  });
+
+  it("permite ao consultor responsável configurar uma senha sem retornar seu conteúdo", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    await expect(caller.clients.provisionAccess({ clientId: 3, password: "SenhaAion2026" })).resolves.toEqual({ userId: 7, email: "cliente@example.com" });
+    expect(dbMocks.provisionClientCredentials).toHaveBeenCalledWith(expect.objectContaining({ clientId: 3, passwordHash: expect.stringMatching(/^scrypt\$/) }));
+    expect(dbMocks.provisionClientCredentials.mock.calls[0]?.[0]?.passwordHash).not.toContain("SenhaAion2026");
+  });
+
+  it("impede que um consultor provisione acesso para cliente de outra carteira", async () => {
+    dbMocks.getClientById.mockResolvedValue({ ...client, consultorId: 99 });
+    const caller = appRouter.createCaller(createConsultorContext());
+    await expect(caller.clients.provisionAccess({ clientId: 3, password: "SenhaAion2026" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(dbMocks.provisionClientCredentials).not.toHaveBeenCalled();
+  });
+});
 
 describe("notifications.generateDueAlerts", () => {
   beforeEach(() => {

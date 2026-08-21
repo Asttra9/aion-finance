@@ -1,5 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
+import { randomUUID } from "node:crypto";
 import { inArray } from "drizzle-orm";
 import {
   InsertUser,
@@ -118,6 +119,70 @@ export async function updateUserProfile(userId: number, input: { name: string })
   await db.update(users).set({ name: input.name }).where(eq(users.id, userId));
   const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
   return result[0];
+}
+
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.email, email.trim().toLowerCase())).limit(1);
+  return result[0];
+}
+
+export async function provisionClientCredentials(input: { clientId: number; passwordHash: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível.");
+
+  const client = await getClientById(input.clientId);
+  if (!client) return undefined;
+  if (!client.email) throw new Error("Cadastre um e-mail para liberar o acesso do cliente.");
+
+  const now = new Date();
+  let userId = client.userId;
+  if (userId) {
+    await db
+      .update(users)
+      .set({
+        email: client.email.trim().toLowerCase(),
+        name: client.name,
+        passwordHash: input.passwordHash,
+        passwordUpdatedAt: now,
+        failedLoginAttempts: 0,
+        lockedUntil: null,
+        role: "cliente",
+        loginMethod: "senha_local",
+      })
+      .where(eq(users.id, userId));
+  } else {
+    const created = await db.insert(users).values({
+      openId: `local-client-${client.id}-${randomUUID()}`,
+      name: client.name,
+      email: client.email.trim().toLowerCase(),
+      passwordHash: input.passwordHash,
+      passwordUpdatedAt: now,
+      failedLoginAttempts: 0,
+      role: "cliente",
+      loginMethod: "senha_local",
+      lastSignedIn: now,
+    });
+    userId = Number(created[0].insertId);
+    await db.update(clients).set({ userId }).where(eq(clients.id, client.id));
+  }
+
+  return { userId, email: client.email.trim().toLowerCase() };
+}
+
+export async function registerSuccessfulLocalLogin(userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ failedLoginAttempts: 0, lockedUntil: null, lastSignedIn: new Date() }).where(eq(users.id, userId));
+}
+
+export async function registerFailedLocalLogin(userId: number, currentAttempts: number) {
+  const db = await getDb();
+  if (!db) return;
+  const failedLoginAttempts = currentAttempts + 1;
+  const lockedUntil = failedLoginAttempts >= 5 ? new Date(Date.now() + 15 * 60 * 1000) : null;
+  await db.update(users).set({ failedLoginAttempts, lockedUntil }).where(eq(users.id, userId));
 }
 
 // ===== CLIENT QUERIES =====
