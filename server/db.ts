@@ -16,6 +16,8 @@ import {
   financialGoals,
   financialGoalContributions,
   serviceSubscriptions,
+  recurringTransactions,
+  recurringTransactionOccurrences,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -276,6 +278,163 @@ export async function createTransactions(data: Array<typeof transactions.$inferI
   for (let index = 0; index < data.length; index += 500) {
     await db.insert(transactions).values(data.slice(index, index + 500));
   }
+}
+
+// ===== RECORRÊNCIAS E PREVISÕES =====
+
+export async function getRecurringTransactionsByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(recurringTransactions)
+    .where(eq(recurringTransactions.clientId, clientId))
+    .orderBy(desc(recurringTransactions.nextOccurrence));
+}
+
+export async function getRecurringTransactionById(recurringTransactionId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select()
+    .from(recurringTransactions)
+    .where(eq(recurringTransactions.id, recurringTransactionId))
+    .limit(1);
+  return result[0];
+}
+
+export async function createRecurringTransaction(data: typeof recurringTransactions.$inferInsert) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.insert(recurringTransactions).values(data);
+}
+
+export async function updateRecurringTransaction(
+  recurringTransactionId: number,
+  data: Partial<typeof recurringTransactions.$inferInsert>,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.update(recurringTransactions).set(data).where(eq(recurringTransactions.id, recurringTransactionId));
+}
+
+function clampRecurringDay(year: number, monthIndex: number, day: number) {
+  return Math.min(Math.max(day, 1), new Date(year, monthIndex + 1, 0).getDate());
+}
+
+function nextRecurringDate(rule: typeof recurringTransactions.$inferSelect, reference: Date) {
+  const current = new Date(reference);
+  if (rule.frequency === "anual") {
+    const targetMonth = Math.min(Math.max(rule.dueMonth ?? current.getMonth() + 1, 1), 12) - 1;
+    const scheduled = new Date(current.getFullYear(), targetMonth, clampRecurringDay(current.getFullYear(), targetMonth, rule.dueDay));
+    if (scheduled <= current) {
+      const year = current.getFullYear() + 1;
+      return new Date(year, targetMonth, clampRecurringDay(year, targetMonth, rule.dueDay));
+    }
+    return scheduled;
+  }
+
+  const scheduled = new Date(current.getFullYear(), current.getMonth(), clampRecurringDay(current.getFullYear(), current.getMonth(), rule.dueDay));
+  if (scheduled <= current) {
+    const nextMonth = current.getMonth() + 1;
+    return new Date(current.getFullYear(), nextMonth, clampRecurringDay(current.getFullYear(), nextMonth, rule.dueDay));
+  }
+  return scheduled;
+}
+
+/** Geração por demanda, sem timers, com uma única previsão por competência. */
+export async function ensureRecurringOccurrencesForClient(clientId: number, daysAhead = 60) {
+  const db = await getDb();
+  if (!db) return 0;
+  const rules = await db
+    .select()
+    .from(recurringTransactions)
+    .where(and(eq(recurringTransactions.clientId, clientId), eq(recurringTransactions.status, "ativa")));
+  const horizon = new Date();
+  horizon.setDate(horizon.getDate() + daysAhead);
+  let created = 0;
+
+  for (const rule of rules) {
+    let scheduledDate = new Date(rule.nextOccurrence);
+    while (scheduledDate <= horizon) {
+      const existing = await db
+        .select({ id: recurringTransactionOccurrences.id })
+        .from(recurringTransactionOccurrences)
+        .where(and(
+          eq(recurringTransactionOccurrences.recurringTransactionId, rule.id),
+          eq(recurringTransactionOccurrences.scheduledDate, scheduledDate),
+        ))
+        .limit(1);
+      if (!existing[0]) {
+        await db.insert(recurringTransactionOccurrences).values({
+          recurringTransactionId: rule.id,
+          clientId,
+          scheduledDate,
+          status: "previsto",
+        });
+        created++;
+      }
+      scheduledDate = nextRecurringDate(rule, scheduledDate);
+    }
+    if (scheduledDate.getTime() !== new Date(rule.nextOccurrence).getTime()) {
+      await db.update(recurringTransactions).set({ nextOccurrence: scheduledDate }).where(eq(recurringTransactions.id, rule.id));
+    }
+  }
+  return created;
+}
+
+export async function getRecurringOccurrencesByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ occurrence: recurringTransactionOccurrences, rule: recurringTransactions })
+    .from(recurringTransactionOccurrences)
+    .innerJoin(recurringTransactions, eq(recurringTransactionOccurrences.recurringTransactionId, recurringTransactions.id))
+    .where(eq(recurringTransactionOccurrences.clientId, clientId))
+    .orderBy(desc(recurringTransactionOccurrences.scheduledDate));
+}
+
+export async function getRecurringOccurrenceById(occurrenceId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db
+    .select({ occurrence: recurringTransactionOccurrences, rule: recurringTransactions })
+    .from(recurringTransactionOccurrences)
+    .innerJoin(recurringTransactions, eq(recurringTransactionOccurrences.recurringTransactionId, recurringTransactions.id))
+    .where(eq(recurringTransactionOccurrences.id, occurrenceId))
+    .limit(1);
+  return result[0];
+}
+
+export async function confirmRecurringOccurrence(occurrenceId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const item = await getRecurringOccurrenceById(occurrenceId);
+  if (!item) throw new Error("Recurring occurrence not found");
+  if (item.occurrence.status === "confirmado" || item.occurrence.transactionId) throw new Error("Recurring occurrence already confirmed");
+
+  const result = await db.insert(transactions).values({
+    clientId: item.occurrence.clientId,
+    categoryId: item.rule.categoryId,
+    date: item.occurrence.scheduledDate,
+    description: item.rule.description,
+    amount: item.rule.amount,
+    type: item.rule.type,
+    financeType: item.rule.financeType,
+    status: "pendente",
+    notes: "Lançamento confirmado a partir de recorrência.",
+  });
+  const transactionId = Number((result as unknown as [{ insertId?: number }])[0]?.insertId);
+  if (!Number.isInteger(transactionId) || transactionId <= 0) throw new Error("Unable to create confirmed transaction");
+
+  await db.update(recurringTransactionOccurrences).set({ status: "confirmado", transactionId }).where(eq(recurringTransactionOccurrences.id, occurrenceId));
+  return { transactionId };
+}
+
+export async function updateRecurringOccurrenceStatus(occurrenceId: number, status: "adiado" | "cancelado") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.update(recurringTransactionOccurrences).set({ status }).where(eq(recurringTransactionOccurrences.id, occurrenceId));
 }
 
 export async function getTransactionCategories(consultorId: number) {

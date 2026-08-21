@@ -6,8 +6,11 @@ export type ReportPdfInput = {
   businessName?: string | null;
   month: number;
   year: number;
-  reportType: "dre" | "fluxo_caixa";
+  reportType: "dre" | "fluxo_caixa" | "resumo_pessoal";
   transactions: FinancialEntry[];
+  previousTransactions?: FinancialEntry[];
+  upcomingAccounts?: Array<{ description: string; amount: number | string; dueDate: Date }>;
+  goals?: Array<{ name: string; targetAmount: number | string; savedAmount: number | string }>;
 };
 
 function drawHeader(doc: PDFKit.PDFDocument, title: string, subtitle: string) {
@@ -61,8 +64,12 @@ function drawTable(doc: PDFKit.PDFDocument, title: string, rows: Array<{ categor
 
 export async function buildFinancialReportPdf(input: ReportPdfInput): Promise<Buffer> {
   const summary = calculateMonthlySummary(input.transactions);
+  const previousSummary = calculateMonthlySummary(input.previousTransactions ?? []);
+  const fixedExpense = input.transactions
+    .filter((transaction) => transaction.type === "despesa" && transaction.isFixedCost)
+    .reduce((total, transaction) => total + Math.abs(Number(transaction.amount) || 0), 0);
   const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(new Date(input.year, input.month - 1, 1));
-  const title = input.reportType === "dre" ? "DRE SIMPLIFICADO" : "FLUXO DE CAIXA";
+  const title = input.reportType === "dre" ? "DRE GERENCIAL" : input.reportType === "resumo_pessoal" ? "RESUMO FINANCEIRO" : "FLUXO DE CAIXA";
   const subtitle = `${monthLabel} · ${input.clientName}`;
   const doc = new PDFDocument({ size: "A4", margin: 42, info: { Title: `${title} — ${input.clientName}`, Author: "Aion Finance" } });
   const chunks: Buffer[] = [];
@@ -75,14 +82,42 @@ export async function buildFinancialReportPdf(input: ReportPdfInput): Promise<Bu
   drawHeader(doc, title, subtitle);
   doc.y = 112;
   doc.fillColor("#0f172a").font("Helvetica-Bold").fontSize(12).text(input.businessName || input.clientName);
-  doc.fillColor("#64748b").font("Helvetica").fontSize(9).text("Relatório preparado pelo Consultor Aion · Documento gerencial");
+  doc.fillColor("#64748b").font("Helvetica").fontSize(9).text(input.reportType === "resumo_pessoal" ? "Seu resumo mensal · Dados financeiros registrados no AION" : "Relatório preparado pelo Consultor Aion · Documento gerencial");
+
+  if (input.reportType === "resumo_pessoal") {
+    const largestCategory = summary.expenseByCategory[0];
+    const expenseChange = previousSummary.totalExpense > 0
+      ? ((summary.totalExpense - previousSummary.totalExpense) / previousSummary.totalExpense) * 100
+      : null;
+    const predictedTotal = (input.upcomingAccounts ?? []).reduce((sum, account) => sum + Number(account.amount), 0);
+    const savedGoals = (input.goals ?? []).reduce((sum, goal) => sum + Number(goal.savedAmount), 0);
+    drawMetric(doc, 42, 160, "Receitas", formatCurrency(summary.totalIncome), "#0f766e");
+    drawMetric(doc, 213, 160, "Gastos", formatCurrency(summary.totalExpense), "#c2410c");
+    drawMetric(doc, 384, 160, "Saldo", formatCurrency(summary.netCashFlow), summary.netCashFlow >= 0 ? "#2563eb" : "#b91c1c");
+    drawMetric(doc, 42, 235, "Maior categoria", largestCategory ? largestCategory.category : "Sem gastos", "#7c3aed");
+    drawMetric(doc, 213, 235, "Contas previstas", formatCurrency(predictedTotal), "#0891b2");
+    drawMetric(doc, 384, 235, "Metas acumuladas", formatCurrency(savedGoals), "#475569");
+    const comparison = expenseChange === null
+      ? "Não há histórico suficiente para comparar os gastos com o período anterior."
+      : `Seus gastos foram ${Math.abs(expenseChange).toFixed(1).replace(".", ",")}% ${expenseChange > 0 ? "maiores" : expenseChange < 0 ? "menores" : "iguais"} do que no mês anterior.`;
+    doc.fillColor("#0f2747").fontSize(11).font("Helvetica-Bold").text("Leitura do período", 42, 325);
+    doc.fillColor("#475569").fontSize(10).font("Helvetica").text(comparison, 42, 347, { width: 511, lineGap: 4 });
+    let personalTableY = 395;
+    personalTableY = drawTable(doc, "Gastos por categoria", summary.expenseByCategory, personalTableY);
+    if (input.upcomingAccounts?.length) {
+      drawTable(doc, "Contas previstas", input.upcomingAccounts.map((account) => ({ category: `${account.description} · ${new Intl.DateTimeFormat("pt-BR").format(new Date(account.dueDate))}`, amount: Number(account.amount) })), personalTableY + 30);
+    }
+    doc.fillColor("#94a3b8").fontSize(8).font("Helvetica").text("AION Finance · Resumo pessoal · Valores em reais", 42, 785, { width: 511, align: "center" });
+    doc.end();
+    return done;
+  }
 
   drawMetric(doc, 42, 160, "Receitas", formatCurrency(summary.totalIncome), "#0f766e");
   drawMetric(doc, 213, 160, "Despesas", formatCurrency(summary.totalExpense), "#c2410c");
   drawMetric(doc, 384, 160, "Resultado", formatCurrency(summary.netCashFlow), summary.netCashFlow >= 0 ? "#2563eb" : "#b91c1c");
   drawMetric(doc, 42, 235, "Margem", `${summary.grossMargin.toFixed(1)}%`, "#7c3aed");
   drawMetric(doc, 213, 235, "Ponto de equilíbrio", formatCurrency(summary.breakEvenPoint), "#0891b2");
-  drawMetric(doc, 384, 235, "Lançamentos", String(input.transactions.length), "#475569");
+  drawMetric(doc, 384, 235, "Custos fixos", formatCurrency(fixedExpense), "#475569");
 
   doc.fillColor("#0f2747").fontSize(11).font("Helvetica-Bold").text("Leitura executiva", 42, 325);
   const interpretation = summary.netCashFlow >= 0

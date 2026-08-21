@@ -198,12 +198,25 @@
 
 ## Indicadores, relatórios e recorrências por perfil
 
-- [ ] Criar comparativos mensais simplificados para a jornada pessoal do cliente final.
-- [ ] Criar indicadores mensais gerenciais para MEI e empreendedor, proporcionais à operação.
-- [ ] Adicionar ordenação de lançamentos por data, do mais recente ao mais antigo e vice-versa.
-- [ ] Corrigir a atualização da listagem após novos lançamentos operacionais da Aion.
-- [ ] Permitir exportação de resumo financeiro pessoal em PDF.
-- [ ] Permitir exportação de DRE gerencial em PDF para MEI e empreendedor.
-- [ ] Implementar contas recorrentes e assinaturas com geração de lançamentos previstos.
-- [ ] Criar ou atualizar testes, typecheck, build e validação visual dos novos fluxos.
-- [ ] Salvar checkpoint dos indicadores, relatórios e recorrências por perfil.
+- [x] Criar comparativos mensais simplificados para a jornada pessoal do cliente final.
+- [x] Criar indicadores mensais gerenciais para MEI e empreendedor, proporcionais à operação.
+- [x] Exibir custos fixos e fluxo líquido mensal na visão gerencial do MEI, usando categorias e lançamentos reais.
+- [x] Reposicionar a Evolução do Mês no topo do dashboard, junto ao histórico e aos indicadores do período.
+- [x] Adicionar ordenação de lançamentos por data, do mais recente ao mais antigo e vice-versa.
+- [x] Corrigir a atualização da listagem após novos lançamentos operacionais da Aion.
+- [x] Permitir exportação de resumo financeiro pessoal em PDF.
+- [x] Permitir exportação de DRE gerencial em PDF para MEI e empreendedor.
+- [x] Implementar contas recorrentes e assinaturas com geração de lançamentos previstos.
+- [x] Exibir um seletor acessível de ordenação por data nas movimentações e cobrir sua interação em teste.
+- [x] Exibir previsões recorrentes e compromissos futuros nas jornadas pessoal e MEI, respeitando as permissões de confirmação.
+- [x] Cobrir criação, geração idempotente, confirmação e permissões das recorrências por testes automatizados.
+- [x] Criar ou atualizar testes, typecheck, build e validação visual dos novos fluxos.
+- [x] Mover a evolução mensal para o topo da visão empresarial do dashboard principal.
+- [x] Exibir previsões recorrentes e compromissos futuros diretamente na jornada MEI.
+- [x] Concluir a validação visual autenticada dos fluxos pessoal e MEI com dados representativos, sem criar dados financeiros fictícios.
+- [x] Reorganizar explicitamente a visão empresarial em `Dashboard.tsx`, sem depender de reordenação global por CSS.
+- [x] Confirmar a apresentação de compromissos recorrentes na jornada pessoal sem expor controles BPO.
+- [x] Cobrir em teste a ordem das seções analíticas da visão empresarial e a separação de permissões das previsões.
+- [x] Salvar checkpoint dos indicadores, relatórios e recorrências por perfil.
+- [x] Importar o extrato OFX fornecido pelo usuário no perfil MEI temporário para validação com dados reais.
+- [x] Exibir o período mais recente com movimentação nos indicadores mensais quando o mês corrente não tiver dados.

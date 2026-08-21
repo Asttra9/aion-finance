@@ -11,6 +11,9 @@ const meiSource = readFileSync(resolve(projectRoot, "client/src/pages/Mei.tsx"),
 const clientSource = readFileSync(resolve(projectRoot, "client/src/pages/Clientes.tsx"), "utf8");
 const reconciliationSource = readFileSync(resolve(projectRoot, "client/src/pages/Conciliacao.tsx"), "utf8");
 const reportsSource = readFileSync(resolve(projectRoot, "client/src/pages/Relatorios.tsx"), "utf8");
+const transactionsSource = readFileSync(resolve(projectRoot, "client/src/pages/Transacoes.tsx"), "utf8");
+const dashboardSource = readFileSync(resolve(projectRoot, "client/src/pages/Dashboard.tsx"), "utf8");
+const stylesSource = readFileSync(resolve(projectRoot, "client/src/index.css"), "utf8");
 
 describe("roteamento contextual da Aion", () => {
   it("mantém a carteira de clientes registrada para o consultor", () => {
@@ -80,6 +83,34 @@ describe("roteamento contextual da Aion", () => {
     expect(meiSource).toContain('Calendário de prazos');
     expect(meiSource).toContain('trpc.meiWorkflow.get');
     expect(meiSource).toContain('Fluxo empresarial nos últimos 7 dias');
+    expect(meiSource).toContain('MonthlyFinancialOverview');
+    expect(meiSource).toContain('Baixar DRE em PDF');
+  });
+
+  it("prioriza o histórico mensal e o resumo PDF na jornada pessoal", () => {
+    expect(personalSource).toContain('MonthlyFinancialOverview');
+    expect(personalSource).toContain('Baixar resumo PDF');
+    expect(personalSource.indexOf('MonthlyFinancialOverview')).toBeLessThan(personalSource.indexOf('Assinaturas de serviços'));
+  });
+
+  it("mostra previsões pessoais como lembretes, sem expor confirmação operacional", () => {
+    expect(personalSource).toContain('Próximos compromissos');
+    expect(personalSource).toContain('Organizar contas');
+    expect(personalSource).not.toContain('Confirmar lançamento');
+  });
+
+  it("prioriza o gráfico de caixa antes dos cartões na visão empresarial sem reordenação CSS", () => {
+    const businessDashboard = dashboardSource.slice(dashboardSource.indexOf('function BusinessDashboard'), dashboardSource.indexOf('function Agenda'));
+    expect(businessDashboard.indexOf('MonthlyFinancialOverview')).toBeLessThan(businessDashboard.indexOf('Fluxo de caixa semanal'));
+    expect(businessDashboard.indexOf('Fluxo de caixa semanal')).toBeLessThan(businessDashboard.indexOf('Saldo operacional'));
+    expect(stylesSource).not.toContain('.aion-page:has(');
+  });
+
+  it("permite ordenar as movimentações por data de forma explícita e acessível", () => {
+    expect(transactionsSource).toContain('aria-label="Ordenação por data"');
+    expect(transactionsSource).toContain('Mais recentes primeiro');
+    expect(transactionsSource).toContain('Mais antigas primeiro');
+    expect(transactionsSource).toContain('setDateOrder(value)');
   });
 
   it("oferece ao consultor seleção de cliente, barra lateral recolhível e menu de perfil", () => {

@@ -1,103 +1,1505 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import AionDashboardLayout from "@/components/AionDashboardLayout";
+import MonthlyFinancialOverview from "@/components/MonthlyFinancialOverview";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { trpc } from "@/lib/trpc";
 import { journeyFromBusinessType, journeyPath } from "@/lib/journey";
 import {
-  ArrowDownRight, ArrowUpRight, BellRing, BriefcaseBusiness, CalendarClock, ChartNoAxesCombined,
-  ChevronRight, CircleAlert, CircleCheck, CircleDollarSign, Landmark, PiggyBank, Plus,
-  ReceiptText, Sparkles, Target, TrendingDown, TrendingUp, UsersRound, WalletCards,
+  ArrowDownRight,
+  ArrowUpRight,
+  BellRing,
+  BriefcaseBusiness,
+  CalendarClock,
+  ChartNoAxesCombined,
+  ChevronRight,
+  CircleAlert,
+  CircleCheck,
+  CircleDollarSign,
+  Landmark,
+  PiggyBank,
+  Plus,
+  ReceiptText,
+  Sparkles,
+  Target,
+  TrendingDown,
+  TrendingUp,
+  UsersRound,
+  WalletCards,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { useLocation } from "wouter";
 
-const COLORS = ["var(--primary)", "var(--secondary-foreground)", "var(--chart-3)", "var(--chart-4)", "var(--chart-5)"];
-type TransactionLike = { date: Date | string; amount: string | number; type: "receita" | "despesa"; categoryId: number | null; financeType: "pessoal" | "empresarial" };
-type AccountLike = { id: number; description: string; amount: string | number; dueDate: Date | string; status: "pendente" | "pago" | "vencido" | "cancelado"; category?: string | null };
-type GoalLike = { id: number; name: string; targetAmount: string | number; savedAmount: string | number; dueDate: Date | string | null; color: string; icon: string };
-type NotificationLike = { id: number; title: string; message: string | null; read: boolean | null; createdAt: Date | string; type: "vencimento_proximo" | "vencido" | "lembrete_cobranca" };
+const COLORS = [
+  "var(--primary)",
+  "var(--secondary-foreground)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
+];
+type TransactionLike = {
+  date: Date | string;
+  amount: string | number;
+  type: "receita" | "despesa";
+  categoryId: number | null;
+  financeType: "pessoal" | "empresarial";
+};
+type AccountLike = {
+  id: number;
+  description: string;
+  amount: string | number;
+  dueDate: Date | string;
+  status: "pendente" | "pago" | "vencido" | "cancelado";
+  category?: string | null;
+};
+type GoalLike = {
+  id: number;
+  name: string;
+  targetAmount: string | number;
+  savedAmount: string | number;
+  dueDate: Date | string | null;
+  color: string;
+  icon: string;
+};
+type NotificationLike = {
+  id: number;
+  title: string;
+  message: string | null;
+  read: boolean | null;
+  createdAt: Date | string;
+  type: "vencimento_proximo" | "vencido" | "lembrete_cobranca";
+};
 
 const toAmount = (value: string | number) => Number(value) || 0;
-const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-const dateLabel = (value: Date | string) => new Date(value).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" });
+const money = (value: number) =>
+  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const dateLabel = (value: Date | string) =>
+  new Date(value).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+  });
 
-function Metric({ label, value, note, tone = "default", icon: Icon }: { label: string; value: string; note: string; tone?: "default" | "positive" | "negative"; icon: typeof WalletCards }) {
-  const colors = tone === "positive" ? "bg-emerald-50 text-emerald-700" : tone === "negative" ? "bg-[#f9e8eb] text-[#b21d31]" : "bg-[#f0e7e3] text-[#2d2d2d]";
-  return <Card className="aion-metric"><CardContent className="p-5"><div className="flex items-start justify-between gap-3"><div><p className="text-sm font-bold text-muted-foreground">{label}</p><p className="mt-3 text-2xl font-extrabold tracking-[-.045em]">{value}</p></div><span className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors}`}><Icon className="h-5 w-5" /></span></div><p className="mt-3 text-xs font-medium text-muted-foreground">{note}</p></CardContent></Card>;
+function Metric({
+  label,
+  value,
+  note,
+  tone = "default",
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  note: string;
+  tone?: "default" | "positive" | "negative";
+  icon: typeof WalletCards;
+}) {
+  const colors =
+    tone === "positive"
+      ? "bg-emerald-50 text-emerald-700"
+      : tone === "negative"
+        ? "bg-[#f9e8eb] text-[#b21d31]"
+        : "bg-[#f0e7e3] text-[#2d2d2d]";
+  return (
+    <Card className="aion-metric">
+      <CardContent className="p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-bold text-muted-foreground">{label}</p>
+            <p className="mt-3 text-2xl font-extrabold tracking-[-.045em]">
+              {value}
+            </p>
+          </div>
+          <span
+            className={`flex h-10 w-10 items-center justify-center rounded-xl ${colors}`}
+          >
+            <Icon className="h-5 w-5" />
+          </span>
+        </div>
+        <p className="mt-3 text-xs font-medium text-muted-foreground">{note}</p>
+      </CardContent>
+    </Card>
+  );
 }
 
-function ChartPanel({ title, description, children, action }: { title: string; description: string; children: React.ReactNode; action?: React.ReactNode }) {
-  return <Card className="aion-panel"><CardContent className="p-5 sm:p-6"><div className="mb-5 flex items-start justify-between gap-4"><div><h3 className="text-lg font-extrabold tracking-[-0.03em]">{title}</h3><p className="mt-1 text-sm text-muted-foreground">{description}</p></div>{action}</div>{children}</CardContent></Card>;
+function ChartPanel({
+  title,
+  description,
+  children,
+  action,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <Card className="aion-panel">
+      <CardContent className="p-5 sm:p-6">
+        <div className="mb-5 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-lg font-extrabold tracking-[-0.03em]">
+              {title}
+            </h3>
+            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          </div>
+          {action}
+        </div>
+        {children}
+      </CardContent>
+    </Card>
+  );
 }
 
-function DailyFocus({ notifications, transactions, clients, navigate }: { notifications: NotificationLike[]; transactions: TransactionLike[]; clients?: Array<{ id: number; name: string; status: string }>; navigate: (path: string) => void }) {
-  const alerts = notifications.filter((notification) => !notification.read).slice(0, 2);
-  const recentTransactions = [...transactions].sort((a, b) => +new Date(b.date) - +new Date(a.date)).slice(0, 3);
-  const clientPriorities = (clients ?? []).filter((client) => client.status === "em_onboarding" || client.status === "inadimplente").slice(0, 3);
+function DailyFocus({
+  notifications,
+  transactions,
+  clients,
+  navigate,
+}: {
+  notifications: NotificationLike[];
+  transactions: TransactionLike[];
+  clients?: Array<{ id: number; name: string; status: string }>;
+  navigate: (path: string) => void;
+}) {
+  const alerts = notifications
+    .filter(notification => !notification.read)
+    .slice(0, 2);
+  const recentTransactions = [...transactions]
+    .sort((a, b) => +new Date(b.date) - +new Date(a.date))
+    .slice(0, 3);
+  const clientPriorities = (clients ?? [])
+    .filter(
+      client =>
+        client.status === "em_onboarding" || client.status === "inadimplente"
+    )
+    .slice(0, 3);
   const isConsultant = Boolean(clients);
-  return <section className="aion-page pb-0"><div className="rounded-[1.45rem] border border-border/90 bg-card p-5 shadow-[0_12px_28px_rgba(62,48,43,0.05)] sm:p-6"><div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="aion-eyebrow">Foco do dia</p><h3 className="mt-1 text-xl font-extrabold tracking-[-0.035em]">O que merece atenção agora</h3></div><Button variant="ghost" size="sm" className="w-fit px-0 text-primary hover:bg-transparent hover:text-primary" onClick={() => navigate(isConsultant ? "/operacao" : "/transacoes")}>{isConsultant ? "Ver operação" : "Ver lançamentos"}<ChevronRight className="ml-1 h-4 w-4" /></Button></div><div className="grid gap-5 lg:grid-cols-2"><div className="border-b border-border pb-5 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-5"><p className="text-xs font-extrabold uppercase tracking-[.13em] text-muted-foreground">{isConsultant ? "Alertas da carteira" : "Alertas recentes"}</p><div className="mt-3 space-y-2">{isConsultant ? clientPriorities.map((client) => <button key={client.id} type="button" onClick={() => navigate(`/clientes/${client.id}/dashboard`)} className="flex w-full items-center gap-3 rounded-xl bg-secondary/65 px-3 py-3 text-left transition hover:bg-accent"><CircleAlert className="h-4 w-4 shrink-0 text-primary" /><span className="min-w-0"><span className="block truncate text-sm font-extrabold">{client.name}</span><span className="block text-xs text-muted-foreground">{client.status === "inadimplente" ? "Pendência financeira em acompanhamento" : "Cadastro em onboarding"}</span></span></button>) : alerts.map((alert) => <div key={alert.id} className="flex gap-3 rounded-xl bg-secondary/65 px-3 py-3"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-primary" /><div className="min-w-0"><p className="text-sm font-extrabold">{alert.title}</p><p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{alert.message || "Atenção necessária neste contexto financeiro."}</p></div></div>)}{(isConsultant ? !clientPriorities.length : !alerts.length) && <p className="rounded-xl bg-secondary/55 px-3 py-4 text-sm text-muted-foreground">{isConsultant ? "Nenhuma prioridade crítica identificada na carteira." : "Nenhum alerta pendente no momento."}</p>}</div></div><div><p className="text-xs font-extrabold uppercase tracking-[.13em] text-muted-foreground">{isConsultant ? "Carteira em acompanhamento" : "Atividade recente"}</p><div className="mt-3 space-y-2">{isConsultant ? (clients ?? []).slice(0, 3).map((client) => <button key={client.id} type="button" onClick={() => navigate(`/clientes/${client.id}/dashboard`)} className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-secondary"><span className="min-w-0"><span className="block truncate text-sm font-extrabold">{client.name}</span><span className="block text-xs text-muted-foreground">{client.status === "ativo" ? "Cliente ativo" : client.status.replace("_", " ")}</span></span><ChevronRight className="h-4 w-4 shrink-0 text-primary" /></button>) : recentTransactions.map((transaction, index) => <div key={`${transaction.date}-${index}-${transaction.categoryId ?? "sem-categoria"}`} className="flex items-center justify-between gap-3 rounded-xl px-3 py-3"><span className="min-w-0"><span className="block truncate text-sm font-extrabold">{transaction.type === "receita" ? "Entrada registrada" : "Saída registrada"}</span><span className="block text-xs text-muted-foreground">{dateLabel(transaction.date)} · {transaction.financeType === "pessoal" ? "Pessoal" : "Empresarial"}</span></span><span className={transaction.type === "receita" ? "shrink-0 text-sm font-extrabold text-emerald-700" : "shrink-0 text-sm font-extrabold text-primary"}>{transaction.type === "receita" ? "+" : "−"}{money(toAmount(transaction.amount))}</span></div>)}{(isConsultant ? !(clients ?? []).length : !recentTransactions.length) && <p className="rounded-xl bg-secondary/55 px-3 py-4 text-sm text-muted-foreground">{isConsultant ? "Adicione clientes à carteira para iniciar o acompanhamento." : "Os próximos lançamentos aparecerão aqui."}</p>}</div></div></div></div></section>;
+  return (
+    <section className="aion-page pb-0">
+      <div className="rounded-[1.45rem] border border-border/90 bg-card p-5 shadow-[0_12px_28px_rgba(62,48,43,0.05)] sm:p-6">
+        <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="aion-eyebrow">Foco do dia</p>
+            <h3 className="mt-1 text-xl font-extrabold tracking-[-0.035em]">
+              O que merece atenção agora
+            </h3>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-fit px-0 text-primary hover:bg-transparent hover:text-primary"
+            onClick={() => navigate(isConsultant ? "/operacao" : "/transacoes")}
+          >
+            {isConsultant ? "Ver operação" : "Ver lançamentos"}
+            <ChevronRight className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
+        <div className="grid gap-5 lg:grid-cols-2">
+          <div className="border-b border-border pb-5 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-5">
+            <p className="text-xs font-extrabold uppercase tracking-[.13em] text-muted-foreground">
+              {isConsultant ? "Alertas da carteira" : "Alertas recentes"}
+            </p>
+            <div className="mt-3 space-y-2">
+              {isConsultant
+                ? clientPriorities.map(client => (
+                    <button
+                      key={client.id}
+                      type="button"
+                      onClick={() =>
+                        navigate(`/clientes/${client.id}/dashboard`)
+                      }
+                      className="flex w-full items-center gap-3 rounded-xl bg-secondary/65 px-3 py-3 text-left transition hover:bg-accent"
+                    >
+                      <CircleAlert className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-extrabold">
+                          {client.name}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {client.status === "inadimplente"
+                            ? "Pendência financeira em acompanhamento"
+                            : "Cadastro em onboarding"}
+                        </span>
+                      </span>
+                    </button>
+                  ))
+                : alerts.map(alert => (
+                    <div
+                      key={alert.id}
+                      className="flex gap-3 rounded-xl bg-secondary/65 px-3 py-3"
+                    >
+                      <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-extrabold">{alert.title}</p>
+                        <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
+                          {alert.message ||
+                            "Atenção necessária neste contexto financeiro."}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+              {(isConsultant ? !clientPriorities.length : !alerts.length) && (
+                <p className="rounded-xl bg-secondary/55 px-3 py-4 text-sm text-muted-foreground">
+                  {isConsultant
+                    ? "Nenhuma prioridade crítica identificada na carteira."
+                    : "Nenhum alerta pendente no momento."}
+                </p>
+              )}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-[.13em] text-muted-foreground">
+              {isConsultant
+                ? "Carteira em acompanhamento"
+                : "Atividade recente"}
+            </p>
+            <div className="mt-3 space-y-2">
+              {isConsultant
+                ? (clients ?? []).slice(0, 3).map(client => (
+                    <button
+                      key={client.id}
+                      type="button"
+                      onClick={() =>
+                        navigate(`/clientes/${client.id}/dashboard`)
+                      }
+                      className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left transition hover:bg-secondary"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-extrabold">
+                          {client.name}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {client.status === "ativo"
+                            ? "Cliente ativo"
+                            : client.status.replace("_", " ")}
+                        </span>
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-primary" />
+                    </button>
+                  ))
+                : recentTransactions.map((transaction, index) => (
+                    <div
+                      key={`${transaction.date}-${index}-${transaction.categoryId ?? "sem-categoria"}`}
+                      className="flex items-center justify-between gap-3 rounded-xl px-3 py-3"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-extrabold">
+                          {transaction.type === "receita"
+                            ? "Entrada registrada"
+                            : "Saída registrada"}
+                        </span>
+                        <span className="block text-xs text-muted-foreground">
+                          {dateLabel(transaction.date)} ·{" "}
+                          {transaction.financeType === "pessoal"
+                            ? "Pessoal"
+                            : "Empresarial"}
+                        </span>
+                      </span>
+                      <span
+                        className={
+                          transaction.type === "receita"
+                            ? "shrink-0 text-sm font-extrabold text-emerald-700"
+                            : "shrink-0 text-sm font-extrabold text-primary"
+                        }
+                      >
+                        {transaction.type === "receita" ? "+" : "−"}
+                        {money(toAmount(transaction.amount))}
+                      </span>
+                    </div>
+                  ))}
+              {(isConsultant
+                ? !(clients ?? []).length
+                : !recentTransactions.length) && (
+                <p className="rounded-xl bg-secondary/55 px-3 py-4 text-sm text-muted-foreground">
+                  {isConsultant
+                    ? "Adicione clientes à carteira para iniciar o acompanhamento."
+                    : "Os próximos lançamentos aparecerão aqui."}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
 }
 
-function EmptyState({ text, action, onAction }: { text: string; action: string; onAction: () => void }) {
-  return <div className="aion-empty"><p className="font-bold">{text}</p><p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">Registre lançamentos e compromissos para transformar dados em decisões mais claras.</p><Button onClick={onAction} className="mt-5 min-h-11">{action}<ChevronRight className="ml-1 h-4 w-4" /></Button></div>;
+function EmptyState({
+  text,
+  action,
+  onAction,
+}: {
+  text: string;
+  action: string;
+  onAction: () => void;
+}) {
+  return (
+    <div className="aion-empty">
+      <p className="font-bold">{text}</p>
+      <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
+        Registre lançamentos e compromissos para transformar dados em decisões
+        mais claras.
+      </p>
+      <Button onClick={onAction} className="mt-5 min-h-11">
+        {action}
+        <ChevronRight className="ml-1 h-4 w-4" />
+      </Button>
+    </div>
+  );
 }
 
-function GoalsPanel({ clientId, goals, business }: { clientId: number; goals: GoalLike[]; business: boolean }) {
+function GoalsPanel({
+  clientId,
+  goals,
+  business,
+}: {
+  clientId: number;
+  goals: GoalLike[];
+  business: boolean;
+}) {
   const utils = trpc.useUtils();
   const [open, setOpen] = useState(false);
-  const [contributionGoal, setContributionGoal] = useState<GoalLike | null>(null);
+  const [contributionGoal, setContributionGoal] = useState<GoalLike | null>(
+    null
+  );
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [contribution, setContribution] = useState("");
   const refresh = () => utils.financialGoals.list.invalidate({ clientId });
-  const createGoal = trpc.financialGoals.create.useMutation({ onSuccess: () => { refresh(); setOpen(false); setName(""); setTarget(""); setDueDate(""); } });
-  const addContribution = trpc.financialGoals.contribute.useMutation({ onSuccess: () => { refresh(); setContributionGoal(null); setContribution(""); } });
+  const createGoal = trpc.financialGoals.create.useMutation({
+    onSuccess: () => {
+      refresh();
+      setOpen(false);
+      setName("");
+      setTarget("");
+      setDueDate("");
+    },
+  });
+  const addContribution = trpc.financialGoals.contribute.useMutation({
+    onSuccess: () => {
+      refresh();
+      setContributionGoal(null);
+      setContribution("");
+    },
+  });
 
-  return <ChartPanel title="Minhas caixinhas" description={business ? "Reserve recursos para decisões e compromissos do negócio." : "Transforme planos importantes em reservas que cabem no seu mês."} action={<Dialog open={open} onOpenChange={setOpen}><DialogTrigger asChild><Button size="sm" className="min-h-9 rounded-lg"><Plus className="mr-1 h-4 w-4" />Nova meta</Button></DialogTrigger><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>Criar uma caixinha</DialogTitle><DialogDescription>Defina um destino e o valor que deseja reservar.</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={(event) => { event.preventDefault(); createGoal.mutate({ clientId, name, targetAmount: target, dueDate: dueDate ? new Date(`${dueDate}T12:00:00`) : undefined }); }}><div className="space-y-2"><Label htmlFor="goal-name">Nome da meta</Label><Input id="goal-name" value={name} onChange={(event) => setName(event.target.value)} placeholder={business ? "Ex.: Reserva para impostos" : "Ex.: Viagem em família"} required /></div><div className="space-y-2"><Label htmlFor="goal-target">Quanto deseja guardar</Label><Input id="goal-target" inputMode="decimal" value={target} onChange={(event) => setTarget(event.target.value.replace(",", "."))} placeholder="0,00" required /></div><div className="space-y-2"><Label htmlFor="goal-date">Prazo desejado</Label><Input id="goal-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></div><Button type="submit" className="w-full" disabled={createGoal.isPending}>{createGoal.isPending ? "Criando..." : "Criar caixinha"}</Button></form></DialogContent></Dialog>}>
-    {goals.length ? <div className="grid gap-3 sm:grid-cols-2">{goals.slice(0, 4).map((goal) => { const targetAmount = toAmount(goal.targetAmount); const savedAmount = toAmount(goal.savedAmount); const progress = Math.min(100, targetAmount ? (savedAmount / targetAmount) * 100 : 0); return <div key={goal.id} className="group rounded-2xl border border-[#e5dfda] bg-[#fdfcfa] p-4 transition hover:-translate-y-0.5 hover:border-[#b21d31]/35 hover:shadow-sm"><div className="flex items-start justify-between gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl" style={{ backgroundColor: `${goal.color}18`, color: goal.color }}><PiggyBank className="h-5 w-5" /></span><span className="rounded-full bg-white px-2 py-1 text-[0.65rem] font-extrabold text-muted-foreground shadow-sm">{Math.round(progress)}%</span></div><p className="mt-4 truncate text-sm font-extrabold">{goal.name}</p><p className="mt-1 text-xs text-muted-foreground">{money(savedAmount)} de {money(targetAmount)}</p><div className="mt-3 h-2 overflow-hidden rounded-full bg-[#ece7e3]"><div className="h-full rounded-full transition-[width]" style={{ width: `${progress}%`, backgroundColor: goal.color }} /></div><div className="mt-3 flex items-center justify-between gap-2"><span className="text-[0.68rem] font-bold text-muted-foreground">{goal.dueDate ? `Até ${dateLabel(goal.dueDate)}` : "Sem prazo"}</span><button type="button" onClick={() => setContributionGoal(goal)} className="text-xs font-extrabold text-[#b21d31] hover:underline">Aportar</button></div></div>; })}</div> : <div className="rounded-2xl border border-dashed border-[#d8cec8] bg-[#fdfcfa] px-5 py-7 text-center"><Target className="mx-auto h-6 w-6 text-[#b21d31]" /><p className="mt-3 font-extrabold">Sua primeira caixinha começa aqui.</p><p className="mt-1 text-sm text-muted-foreground">Escolha algo importante e acompanhe cada aporte.</p></div>}
-    <Dialog open={!!contributionGoal} onOpenChange={(isOpen) => !isOpen && setContributionGoal(null)}><DialogContent className="sm:max-w-sm"><DialogHeader><DialogTitle>Adicionar à caixinha</DialogTitle><DialogDescription>{contributionGoal?.name}</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={(event) => { event.preventDefault(); if (contributionGoal) addContribution.mutate({ goalId: contributionGoal.id, amount: contribution }); }}><div className="space-y-2"><Label htmlFor="contribution">Valor do aporte</Label><Input id="contribution" inputMode="decimal" value={contribution} onChange={(event) => setContribution(event.target.value.replace(",", "."))} placeholder="0,00" required /></div><Button type="submit" className="w-full" disabled={addContribution.isPending}>{addContribution.isPending ? "Adicionando..." : "Confirmar aporte"}</Button></form></DialogContent></Dialog>
-  </ChartPanel>;
+  return (
+    <ChartPanel
+      title="Minhas caixinhas"
+      description={
+        business
+          ? "Reserve recursos para decisões e compromissos do negócio."
+          : "Transforme planos importantes em reservas que cabem no seu mês."
+      }
+      action={
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button size="sm" className="min-h-9 rounded-lg">
+              <Plus className="mr-1 h-4 w-4" />
+              Nova meta
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Criar uma caixinha</DialogTitle>
+              <DialogDescription>
+                Defina um destino e o valor que deseja reservar.
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              className="space-y-4"
+              onSubmit={event => {
+                event.preventDefault();
+                createGoal.mutate({
+                  clientId,
+                  name,
+                  targetAmount: target,
+                  dueDate: dueDate
+                    ? new Date(`${dueDate}T12:00:00`)
+                    : undefined,
+                });
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="goal-name">Nome da meta</Label>
+                <Input
+                  id="goal-name"
+                  value={name}
+                  onChange={event => setName(event.target.value)}
+                  placeholder={
+                    business
+                      ? "Ex.: Reserva para impostos"
+                      : "Ex.: Viagem em família"
+                  }
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="goal-target">Quanto deseja guardar</Label>
+                <Input
+                  id="goal-target"
+                  inputMode="decimal"
+                  value={target}
+                  onChange={event =>
+                    setTarget(event.target.value.replace(",", "."))
+                  }
+                  placeholder="0,00"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="goal-date">Prazo desejado</Label>
+                <Input
+                  id="goal-date"
+                  type="date"
+                  value={dueDate}
+                  onChange={event => setDueDate(event.target.value)}
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={createGoal.isPending}
+              >
+                {createGoal.isPending ? "Criando..." : "Criar caixinha"}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      }
+    >
+      {goals.length ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {goals.slice(0, 4).map(goal => {
+            const targetAmount = toAmount(goal.targetAmount);
+            const savedAmount = toAmount(goal.savedAmount);
+            const progress = Math.min(
+              100,
+              targetAmount ? (savedAmount / targetAmount) * 100 : 0
+            );
+            return (
+              <div
+                key={goal.id}
+                className="group rounded-2xl border border-[#e5dfda] bg-[#fdfcfa] p-4 transition hover:-translate-y-0.5 hover:border-[#b21d31]/35 hover:shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <span
+                    className="flex h-10 w-10 items-center justify-center rounded-xl"
+                    style={{
+                      backgroundColor: `${goal.color}18`,
+                      color: goal.color,
+                    }}
+                  >
+                    <PiggyBank className="h-5 w-5" />
+                  </span>
+                  <span className="rounded-full bg-white px-2 py-1 text-[0.65rem] font-extrabold text-muted-foreground shadow-sm">
+                    {Math.round(progress)}%
+                  </span>
+                </div>
+                <p className="mt-4 truncate text-sm font-extrabold">
+                  {goal.name}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {money(savedAmount)} de {money(targetAmount)}
+                </p>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#ece7e3]">
+                  <div
+                    className="h-full rounded-full transition-[width]"
+                    style={{
+                      width: `${progress}%`,
+                      backgroundColor: goal.color,
+                    }}
+                  />
+                </div>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <span className="text-[0.68rem] font-bold text-muted-foreground">
+                    {goal.dueDate
+                      ? `Até ${dateLabel(goal.dueDate)}`
+                      : "Sem prazo"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setContributionGoal(goal)}
+                    className="text-xs font-extrabold text-[#b21d31] hover:underline"
+                  >
+                    Aportar
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-[#d8cec8] bg-[#fdfcfa] px-5 py-7 text-center">
+          <Target className="mx-auto h-6 w-6 text-[#b21d31]" />
+          <p className="mt-3 font-extrabold">
+            Sua primeira caixinha começa aqui.
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Escolha algo importante e acompanhe cada aporte.
+          </p>
+        </div>
+      )}
+      <Dialog
+        open={!!contributionGoal}
+        onOpenChange={isOpen => !isOpen && setContributionGoal(null)}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Adicionar à caixinha</DialogTitle>
+            <DialogDescription>{contributionGoal?.name}</DialogDescription>
+          </DialogHeader>
+          <form
+            className="space-y-4"
+            onSubmit={event => {
+              event.preventDefault();
+              if (contributionGoal)
+                addContribution.mutate({
+                  goalId: contributionGoal.id,
+                  amount: contribution,
+                });
+            }}
+          >
+            <div className="space-y-2">
+              <Label htmlFor="contribution">Valor do aporte</Label>
+              <Input
+                id="contribution"
+                inputMode="decimal"
+                value={contribution}
+                onChange={event =>
+                  setContribution(event.target.value.replace(",", "."))
+                }
+                placeholder="0,00"
+                required
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={addContribution.isPending}
+            >
+              {addContribution.isPending
+                ? "Adicionando..."
+                : "Confirmar aporte"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </ChartPanel>
+  );
 }
 
-function CategorySummary({ categories, navigate, business }: { categories: Array<{ name: string; value: number }>; navigate: (path: string) => void; business: boolean }) {
-  return <ChartPanel title={business ? "Resumo das saídas" : "Resumo dos seus gastos"} description="Toque em uma categoria para abrir os lançamentos relacionados.">{categories.length ? <div className="grid gap-3 sm:grid-cols-2">{categories.slice(0, 4).map((category, index) => <button type="button" key={category.name} onClick={() => navigate(`/transacoes?categoria=${encodeURIComponent(category.name)}`)} className="group flex min-h-24 items-center justify-between gap-4 rounded-2xl border border-[#e5dfda] bg-[#fdfcfa] p-4 text-left transition hover:-translate-y-0.5 hover:border-[#b21d31]/45 hover:shadow-sm"><span><span className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-extrabold" style={{ color: COLORS[index], backgroundColor: `${COLORS[index]}18` }}>{index + 1}</span><span className="mt-2 block font-extrabold">{category.name}</span><span className="mt-0.5 block text-xs text-muted-foreground">{money(category.value)}</span></span><ChevronRight className="h-4 w-4 text-[#b21d31] transition group-hover:translate-x-0.5" /></button>)}</div> : <p className="rounded-xl bg-secondary/60 px-4 py-5 text-sm text-muted-foreground">As categorias aparecerão quando as despesas forem registradas.</p>}</ChartPanel>;
+function CategorySummary({
+  categories,
+  navigate,
+  business,
+}: {
+  categories: Array<{ name: string; value: number }>;
+  navigate: (path: string) => void;
+  business: boolean;
+}) {
+  return (
+    <ChartPanel
+      title={business ? "Resumo das saídas" : "Resumo dos seus gastos"}
+      description="Toque em uma categoria para abrir os lançamentos relacionados."
+    >
+      {categories.length ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {categories.slice(0, 4).map((category, index) => (
+            <button
+              type="button"
+              key={category.name}
+              onClick={() =>
+                navigate(
+                  `/transacoes?categoria=${encodeURIComponent(category.name)}`
+                )
+              }
+              className="group flex min-h-24 items-center justify-between gap-4 rounded-2xl border border-[#e5dfda] bg-[#fdfcfa] p-4 text-left transition hover:-translate-y-0.5 hover:border-[#b21d31]/45 hover:shadow-sm"
+            >
+              <span>
+                <span
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-xs font-extrabold"
+                  style={{
+                    color: COLORS[index],
+                    backgroundColor: `${COLORS[index]}18`,
+                  }}
+                >
+                  {index + 1}
+                </span>
+                <span className="mt-2 block font-extrabold">
+                  {category.name}
+                </span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">
+                  {money(category.value)}
+                </span>
+              </span>
+              <ChevronRight className="h-4 w-4 text-[#b21d31] transition group-hover:translate-x-0.5" />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="rounded-xl bg-secondary/60 px-4 py-5 text-sm text-muted-foreground">
+          As categorias aparecerão quando as despesas forem registradas.
+        </p>
+      )}
+    </ChartPanel>
+  );
 }
 
-function PersonalDashboard({ clientId, transactions, accounts, categories, goals, navigate }: { clientId: number; transactions: TransactionLike[]; accounts: AccountLike[]; categories: Array<{ id: number; name: string }>; goals: GoalLike[]; navigate: (path: string) => void }) {
-  const finance = useMemo(() => buildFinance(transactions, categories, "pessoal"), [transactions, categories]);
-  const overdue = accounts.filter((item) => item.status === "vencido");
-  const due = accounts.filter((item) => item.status === "pendente");
-  const paid = accounts.filter((item) => item.status === "pago");
+function PersonalDashboard({
+  clientId,
+  transactions,
+  accounts,
+  categories,
+  goals,
+  navigate,
+}: {
+  clientId: number;
+  transactions: TransactionLike[];
+  accounts: AccountLike[];
+  categories: Array<{ id: number; name: string }>;
+  goals: GoalLike[];
+  navigate: (path: string) => void;
+}) {
+  const finance = useMemo(
+    () => buildFinance(transactions, categories, "pessoal"),
+    [transactions, categories]
+  );
+  const overdue = accounts.filter(item => item.status === "vencido");
+  const due = accounts.filter(item => item.status === "pendente");
+  const paid = accounts.filter(item => item.status === "pago");
   const hasData = transactions.length > 0 || accounts.length > 0;
-  return <div className="aion-page"><section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="aion-eyebrow">Finanças pessoais</p><h2 className="aion-title">Seu mês, em ordem.</h2><p className="mt-2 max-w-2xl text-muted-foreground">Comece pelo resumo e aprofunde a categoria que merece atenção.</p></div><Button variant="outline" className="min-h-11 border-primary/30 text-primary hover:bg-accent" onClick={() => navigate("/transacoes")}>Ver lançamentos <ArrowUpRight className="ml-2 h-4 w-4" /></Button></section>{!hasData ? <EmptyState text="Ainda não há movimentações neste perfil." action="Registrar movimentação" onAction={() => navigate("/transacoes")} /> : <><section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Entradas no período" value={money(finance.income)} note="Salário e demais recebimentos" tone="positive" icon={ArrowUpRight} /><Metric label="Gastos no período" value={money(finance.expense)} note="Despesas categorizadas" tone="negative" icon={ArrowDownRight} /><Metric label="Contas a pagar" value={money(sumAccounts(due))} note={`${due.length} compromisso(s) em aberto`} icon={ReceiptText} /><Metric label="Inadimplência" value={money(sumAccounts(overdue))} note={`${overdue.length} conta(s) vencida(s)`} tone={overdue.length ? "negative" : "positive"} icon={CircleAlert} /></section><section className="grid gap-5 xl:grid-cols-[1.35fr_.85fr]"><ChartPanel title="Evolução do saldo" description="Entradas e gastos acumulados nos últimos 7 dias"><ResponsiveContainer width="100%" height={270}><AreaChart data={finance.weekly}><defs><linearGradient id="aionPersonalIncome" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#b21d31" stopOpacity={0.32}/><stop offset="100%" stopColor="#b21d31" stopOpacity={0}/></linearGradient></defs><CartesianGrid vertical={false} stroke="#e5dfda"/><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#716a67", fontSize: 12 }}/><YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `R$${value}`} tick={{ fill: "#716a67", fontSize: 12 }}/><Tooltip formatter={(value: number) => money(value)} contentStyle={{ borderRadius: 14, border: "1px solid #e5dfda" }}/><Area type="monotone" dataKey="saldo" name="Saldo do dia" stroke="#b21d31" strokeWidth={3} fill="url(#aionPersonalIncome)"/></AreaChart></ResponsiveContainer></ChartPanel><GoalsPanel clientId={clientId} goals={goals} business={false} /></section><section className="grid gap-5 xl:grid-cols-[1.25fr_.95fr]"><CategorySummary categories={finance.categories} navigate={navigate} business={false} /><ChartPanel title="Contas do mês" description="Acompanhe o que já foi resolvido e o que pede ação."><div className="space-y-3"><StatusLine icon={CircleCheck} label="Contas pagas" value={`${paid.length} registro(s)`} /><StatusLine icon={CalendarClock} label="A vencer" value={`${due.length} registro(s)`} /><StatusLine icon={CircleAlert} label="Em atraso" value={`${overdue.length} registro(s)`} /></div><Button variant="ghost" className="mt-4 min-h-10 px-0 text-primary hover:bg-transparent hover:text-primary" onClick={() => navigate("/contas-pagar")}>Gerenciar contas <ChevronRight className="ml-1 h-4 w-4" /></Button></ChartPanel></section></>}</div>;
+  return (
+    <div className="aion-page">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="aion-eyebrow">Finanças pessoais</p>
+          <h2 className="aion-title">Seu mês, em ordem.</h2>
+          <p className="mt-2 max-w-2xl text-muted-foreground">
+            Comece pelo resumo e aprofunde a categoria que merece atenção.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="min-h-11 border-primary/30 text-primary hover:bg-accent"
+          onClick={() => navigate("/transacoes")}
+        >
+          Ver lançamentos <ArrowUpRight className="ml-2 h-4 w-4" />
+        </Button>
+      </section>
+      {!hasData ? (
+        <EmptyState
+          text="Ainda não há movimentações neste perfil."
+          action="Registrar movimentação"
+          onAction={() => navigate("/transacoes")}
+        />
+      ) : (
+        <>
+          <section className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_.85fr]">
+            <ChartPanel
+              title="Evolução do mês"
+              description="Histórico de entradas e gastos acumulados nos últimos 7 dias"
+            >
+              <ResponsiveContainer width="100%" height={270}>
+                <AreaChart data={finance.weekly}>
+                  <defs>
+                    <linearGradient
+                      id="aionPersonalIncome"
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor="#b21d31"
+                        stopOpacity={0.32}
+                      />
+                      <stop offset="100%" stopColor="#b21d31" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#e5dfda" />
+                  <XAxis
+                    dataKey="label"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#716a67", fontSize: 12 }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={value => `R$${value}`}
+                    tick={{ fill: "#716a67", fontSize: 12 }}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => money(value)}
+                    contentStyle={{
+                      borderRadius: 14,
+                      border: "1px solid #e5dfda",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="saldo"
+                    name="Saldo do dia"
+                    stroke="#b21d31"
+                    strokeWidth={3}
+                    fill="url(#aionPersonalIncome)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartPanel>
+            <GoalsPanel clientId={clientId} goals={goals} business={false} />
+          </section>
+          <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Metric
+              label="Entradas no período"
+              value={money(finance.income)}
+              note="Salário e demais recebimentos"
+              tone="positive"
+              icon={ArrowUpRight}
+            />
+            <Metric
+              label="Gastos no período"
+              value={money(finance.expense)}
+              note="Despesas categorizadas"
+              tone="negative"
+              icon={ArrowDownRight}
+            />
+            <Metric
+              label="Contas a pagar"
+              value={money(sumAccounts(due))}
+              note={`${due.length} compromisso(s) em aberto`}
+              icon={ReceiptText}
+            />
+            <Metric
+              label="Inadimplência"
+              value={money(sumAccounts(overdue))}
+              note={`${overdue.length} conta(s) vencida(s)`}
+              tone={overdue.length ? "negative" : "positive"}
+              icon={CircleAlert}
+            />
+          </section>
+          <section className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_.95fr]">
+            <CategorySummary
+              categories={finance.categories}
+              navigate={navigate}
+              business={false}
+            />
+            <ChartPanel
+              title="Contas do mês"
+              description="Acompanhe o que já foi resolvido e o que pede ação."
+            >
+              <div className="space-y-3">
+                <StatusLine
+                  icon={CircleCheck}
+                  label="Contas pagas"
+                  value={`${paid.length} registro(s)`}
+                />
+                <StatusLine
+                  icon={CalendarClock}
+                  label="A vencer"
+                  value={`${due.length} registro(s)`}
+                />
+                <StatusLine
+                  icon={CircleAlert}
+                  label="Em atraso"
+                  value={`${overdue.length} registro(s)`}
+                />
+              </div>
+              <Button
+                variant="ghost"
+                className="mt-4 min-h-10 px-0 text-primary hover:bg-transparent hover:text-primary"
+                onClick={() => navigate("/contas-pagar")}
+              >
+                Gerenciar contas <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </ChartPanel>
+          </section>
+        </>
+      )}
+    </div>
+  );
 }
 
-function BusinessDashboard({ clientId, transactions, accountsPayable, accountsReceivable, categories, goals, navigate, label }: { clientId: number; transactions: TransactionLike[]; accountsPayable: AccountLike[]; accountsReceivable: AccountLike[]; categories: Array<{ id: number; name: string }>; goals: GoalLike[]; navigate: (path: string) => void; label: string }) {
+function BusinessDashboard({
+  clientId,
+  transactions,
+  accountsPayable,
+  accountsReceivable,
+  categories,
+  goals,
+  navigate,
+  label,
+}: {
+  clientId: number;
+  transactions: TransactionLike[];
+  accountsPayable: AccountLike[];
+  accountsReceivable: AccountLike[];
+  categories: Array<{ id: number; name: string }>;
+  goals: GoalLike[];
+  navigate: (path: string) => void;
+  label: string;
+}) {
   const [tab, setTab] = useState<"visao" | "indicadores">("visao");
-  const finance = useMemo(() => buildFinance(transactions, categories, "empresarial"), [transactions, categories]);
-  const due = accountsPayable.filter((item) => item.status === "pendente" || item.status === "vencido");
-  const receivable = accountsReceivable.filter((item) => item.status === "pendente" || item.status === "vencido");
-  const hasData = transactions.length > 0 || accountsPayable.length > 0 || accountsReceivable.length > 0;
+  const finance = useMemo(
+    () => buildFinance(transactions, categories, "empresarial"),
+    [transactions, categories]
+  );
+  const due = accountsPayable.filter(
+    item => item.status === "pendente" || item.status === "vencido"
+  );
+  const receivable = accountsReceivable.filter(
+    item => item.status === "pendente" || item.status === "vencido"
+  );
+  const hasData =
+    transactions.length > 0 ||
+    accountsPayable.length > 0 ||
+    accountsReceivable.length > 0;
   const operationalBalance = finance.income - finance.expense;
   const topExpense = finance.categories[0];
-  const expenseShare = topExpense && finance.expense ? Math.round((topExpense.value / finance.expense) * 100) : 0;
-  const insight = topExpense ? `“${topExpense.name}” concentra ${expenseShare}% das saídas. Revise recorrências, negocie fornecedores ou defina um teto mensal para essa categoria.` : "Classifique as saídas para identificar qual categoria mais pressiona seu caixa.";
-  return <div className="aion-page"><section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="aion-eyebrow">Gestão do negócio</p><h2 className="aion-title">O negócio de {label}, com clareza.</h2><p className="mt-2 max-w-2xl text-muted-foreground">Acompanhe caixa, obrigações e recebimentos antes que virem urgência.</p></div><Button variant="outline" className="min-h-11 border-primary/30 text-primary hover:bg-accent" onClick={() => navigate("/transacoes")}>Abrir fluxo de caixa <ArrowUpRight className="ml-2 h-4 w-4" /></Button></section><div className="mt-7 flex w-full gap-2 overflow-x-auto border-b border-border"><button type="button" onClick={() => setTab("visao")} className={`min-h-11 border-b-2 px-4 text-sm font-extrabold transition ${tab === "visao" ? "border-[#b21d31] text-[#b21d31]" : "border-transparent text-muted-foreground hover:text-foreground"}`}>Visão geral</button><button type="button" onClick={() => setTab("indicadores")} className={`min-h-11 border-b-2 px-4 text-sm font-extrabold transition ${tab === "indicadores" ? "border-[#b21d31] text-[#b21d31]" : "border-transparent text-muted-foreground hover:text-foreground"}`}><ChartNoAxesCombined className="mr-1.5 inline h-4 w-4" />Indicadores</button></div>{!hasData ? <EmptyState text="Este negócio ainda não possui lançamentos." action="Registrar primeira movimentação" onAction={() => navigate("/transacoes")} /> : tab === "visao" ? <><section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Saldo operacional" value={money(operationalBalance)} note={operationalBalance >= 0 ? "Entradas cobrem as saídas" : "Saídas acima das entradas"} tone={operationalBalance >= 0 ? "positive" : "negative"} icon={Landmark}/><Metric label="Entradas" value={money(finance.income)} note="Receitas do período" tone="positive" icon={ArrowUpRight}/><Metric label="Saídas" value={money(finance.expense)} note="Despesas do período" tone="negative" icon={ArrowDownRight}/><Metric label="Obrigações próximas" value={money(sumAccounts(due))} note={`${due.length} conta(s) pendente(s) ou vencida(s)`} tone={due.some((item) => item.status === "vencido") ? "negative" : "default"} icon={CalendarClock}/></section><section className="mt-5 grid gap-5 xl:grid-cols-[1.35fr_.85fr]"><ChartPanel title="Fluxo de caixa semanal" description="Entradas e saídas registradas nos últimos 7 dias"><ResponsiveContainer width="100%" height={270}><AreaChart data={finance.weekly}><defs><linearGradient id="aionIncome" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#b21d31" stopOpacity={0.28}/><stop offset="100%" stopColor="#b21d31" stopOpacity={0}/></linearGradient><linearGradient id="aionExpense" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="#363636" stopOpacity={0.18}/><stop offset="100%" stopColor="#363636" stopOpacity={0}/></linearGradient></defs><CartesianGrid vertical={false} stroke="#e5dfda"/><XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fill: "#716a67", fontSize: 12 }}/><YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `R$${value}`} tick={{ fill: "#716a67", fontSize: 12 }}/><Tooltip formatter={(value: number) => money(value)} contentStyle={{ borderRadius: 14, border: "1px solid #e5dfda" }}/><Legend iconType="circle"/><Area type="monotone" dataKey="receita" name="Entradas" stroke="#b21d31" strokeWidth={3} fill="url(#aionIncome)"/><Area type="monotone" dataKey="despesa" name="Saídas" stroke="#363636" strokeWidth={2} fill="url(#aionExpense)"/></AreaChart></ResponsiveContainer></ChartPanel><GoalsPanel clientId={clientId} goals={goals} business /></section><section className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_.95fr]"><CategorySummary categories={finance.categories} navigate={navigate} business /><Agenda accounts={[...due, ...receivable]} /></section></> : <section className="mt-6 grid gap-5 xl:grid-cols-[.92fr_1.08fr]"><ChartPanel title="Maior ponto de atenção" description="O gasto que mais pesa nas saídas registradas."><div className="rounded-2xl bg-[#f9e8eb] p-5"><div className="flex items-center gap-3"><span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#b21d31]"><TrendingDown className="h-5 w-5" /></span><div><p className="text-xs font-extrabold uppercase tracking-[.13em] text-[#a8192c]">Maior gasto</p><p className="mt-1 text-xl font-extrabold">{topExpense?.name ?? "Ainda sem categoria"}</p></div></div><p className="mt-5 text-3xl font-extrabold tracking-[-.05em]">{money(topExpense?.value ?? 0)}</p><p className="mt-1 text-sm font-bold text-[#8f1727]">{topExpense ? `${expenseShare}% das suas saídas` : "Classifique os lançamentos para gerar esta leitura"}</p></div></ChartPanel><ChartPanel title="Orientação Aion" description="Uma ação pequena para melhorar a próxima decisão."><div className="flex gap-4 rounded-2xl border border-[#e5dfda] bg-[#fdfcfa] p-5"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f0e7e3] text-[#b21d31]"><Sparkles className="h-5 w-5" /></span><div><p className="font-extrabold">Comece pela maior saída.</p><p className="mt-1 text-sm leading-relaxed text-muted-foreground">{insight}</p><Button variant="ghost" className="mt-3 h-auto px-0 text-primary hover:bg-transparent hover:text-primary" onClick={() => navigate("/transacoes")}>Ver lançamentos <ChevronRight className="ml-1 h-4 w-4" /></Button></div></div></ChartPanel><ChartPanel title="Distribuição das saídas" description="Categorias que formam o custo do período."><ResponsiveContainer width="100%" height={250}><BarChart data={finance.categories} layout="vertical" margin={{ left: 12 }}><CartesianGrid horizontal={false} stroke="#e5dfda"/><XAxis type="number" hide/><YAxis type="category" dataKey="name" width={94} axisLine={false} tickLine={false} tick={{ fill: "#716a67", fontSize: 12 }}/><Tooltip formatter={(value: number) => money(value)} contentStyle={{ borderRadius: 14, border: "1px solid #e5dfda" }}/><Bar dataKey="value" name="Saídas" fill="#b21d31" radius={[0,8,8,0]} /></BarChart></ResponsiveContainer></ChartPanel><ChartPanel title="Sinais de operação" description="Indicadores simples para o acompanhamento semanal."><div className="space-y-4"><StatusLine icon={operationalBalance >= 0 ? TrendingUp : CircleAlert} label={operationalBalance >= 0 ? "Operação positiva" : "Atenção ao caixa"} value={operationalBalance >= 0 ? "Entradas superam as saídas" : "Saídas superam as entradas"} /><StatusLine icon={CalendarClock} label="Vencimentos" value={`${due.length} obrigação(ões) em acompanhamento`} /><StatusLine icon={CircleDollarSign} label="A receber" value={money(sumAccounts(receivable))} /></div></ChartPanel></section>}</div>;
+  const expenseShare =
+    topExpense && finance.expense
+      ? Math.round((topExpense.value / finance.expense) * 100)
+      : 0;
+  const insight = topExpense
+    ? `“${topExpense.name}” concentra ${expenseShare}% das saídas. Revise recorrências, negocie fornecedores ou defina um teto mensal para essa categoria.`
+    : "Classifique as saídas para identificar qual categoria mais pressiona seu caixa.";
+  return (
+    <div className="aion-page">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="aion-eyebrow">Gestão do negócio</p>
+          <h2 className="aion-title">O negócio de {label}, com clareza.</h2>
+          <p className="mt-2 max-w-2xl text-muted-foreground">
+            Acompanhe caixa, obrigações e recebimentos antes que virem urgência.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          className="min-h-11 border-primary/30 text-primary hover:bg-accent"
+          onClick={() => navigate("/transacoes")}
+        >
+          Abrir fluxo de caixa <ArrowUpRight className="ml-2 h-4 w-4" />
+        </Button>
+      </section>
+      <div className="mt-7 flex w-full gap-2 overflow-x-auto border-b border-border">
+        <button
+          type="button"
+          onClick={() => setTab("visao")}
+          className={`min-h-11 border-b-2 px-4 text-sm font-extrabold transition ${tab === "visao" ? "border-[#b21d31] text-[#b21d31]" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+        >
+          Visão geral
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("indicadores")}
+          className={`min-h-11 border-b-2 px-4 text-sm font-extrabold transition ${tab === "indicadores" ? "border-[#b21d31] text-[#b21d31]" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+        >
+          <ChartNoAxesCombined className="mr-1.5 inline h-4 w-4" />
+          Indicadores
+        </button>
+      </div>
+      {!hasData ? (
+        <EmptyState
+          text="Este negócio ainda não possui lançamentos."
+          action="Registrar primeira movimentação"
+          onAction={() => navigate("/transacoes")}
+        />
+      ) : tab === "visao" ? (
+        <>
+          <MonthlyFinancialOverview
+            transactions={transactions}
+            categories={categories.map(category => ({
+              id: category.id,
+              isFixedCost: Boolean((category as { isFixedCost?: boolean }).isFixedCost),
+            }))}
+            financeType="empresarial"
+          />
+          <section className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_.85fr]">
+            <ChartPanel
+              title="Fluxo de caixa semanal"
+              description="Entradas e saídas registradas nos últimos 7 dias"
+            >
+              <ResponsiveContainer width="100%" height={270}>
+                <AreaChart data={finance.weekly}>
+                  <defs>
+                    <linearGradient id="aionIncome" x1="0" x2="0" y1="0" y2="1">
+                      <stop
+                        offset="0%"
+                        stopColor="#b21d31"
+                        stopOpacity={0.28}
+                      />
+                      <stop offset="100%" stopColor="#b21d31" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient
+                      id="aionExpense"
+                      x1="0"
+                      x2="0"
+                      y1="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="0%"
+                        stopColor="#363636"
+                        stopOpacity={0.18}
+                      />
+                      <stop offset="100%" stopColor="#363636" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} stroke="#e5dfda" />
+                  <XAxis
+                    dataKey="label"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fill: "#716a67", fontSize: 12 }}
+                  />
+                  <YAxis
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={value => `R$${value}`}
+                    tick={{ fill: "#716a67", fontSize: 12 }}
+                  />
+                  <Tooltip
+                    formatter={(value: number) => money(value)}
+                    contentStyle={{
+                      borderRadius: 14,
+                      border: "1px solid #e5dfda",
+                    }}
+                  />
+                  <Legend iconType="circle" />
+                  <Area
+                    type="monotone"
+                    dataKey="receita"
+                    name="Entradas"
+                    stroke="#b21d31"
+                    strokeWidth={3}
+                    fill="url(#aionIncome)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="despesa"
+                    name="Saídas"
+                    stroke="#363636"
+                    strokeWidth={2}
+                    fill="url(#aionExpense)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </ChartPanel>
+            <GoalsPanel clientId={clientId} goals={goals} business />
+          </section>
+          <section className="mt-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Metric
+              label="Saldo operacional"
+              value={money(operationalBalance)}
+              note={
+                operationalBalance >= 0
+                  ? "Entradas cobrem as saídas"
+                  : "Saídas acima das entradas"
+              }
+              tone={operationalBalance >= 0 ? "positive" : "negative"}
+              icon={Landmark}
+            />
+            <Metric
+              label="Entradas"
+              value={money(finance.income)}
+              note="Receitas do período"
+              tone="positive"
+              icon={ArrowUpRight}
+            />
+            <Metric
+              label="Saídas"
+              value={money(finance.expense)}
+              note="Despesas do período"
+              tone="negative"
+              icon={ArrowDownRight}
+            />
+            <Metric
+              label="Obrigações próximas"
+              value={money(sumAccounts(due))}
+              note={`${due.length} conta(s) pendente(s) ou vencida(s)`}
+              tone={
+                due.some(item => item.status === "vencido")
+                  ? "negative"
+                  : "default"
+              }
+              icon={CalendarClock}
+            />
+          </section>
+          <section className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_.95fr]">
+            <CategorySummary
+              categories={finance.categories}
+              navigate={navigate}
+              business
+            />
+            <Agenda accounts={[...due, ...receivable]} />
+          </section>
+        </>
+      ) : (
+        <section className="mt-6 grid gap-5 xl:grid-cols-[.92fr_1.08fr]">
+          <ChartPanel
+            title="Maior ponto de atenção"
+            description="O gasto que mais pesa nas saídas registradas."
+          >
+            <div className="rounded-2xl bg-[#f9e8eb] p-5">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl bg-white text-[#b21d31]">
+                  <TrendingDown className="h-5 w-5" />
+                </span>
+                <div>
+                  <p className="text-xs font-extrabold uppercase tracking-[.13em] text-[#a8192c]">
+                    Maior gasto
+                  </p>
+                  <p className="mt-1 text-xl font-extrabold">
+                    {topExpense?.name ?? "Ainda sem categoria"}
+                  </p>
+                </div>
+              </div>
+              <p className="mt-5 text-3xl font-extrabold tracking-[-.05em]">
+                {money(topExpense?.value ?? 0)}
+              </p>
+              <p className="mt-1 text-sm font-bold text-[#8f1727]">
+                {topExpense
+                  ? `${expenseShare}% das suas saídas`
+                  : "Classifique os lançamentos para gerar esta leitura"}
+              </p>
+            </div>
+          </ChartPanel>
+          <ChartPanel
+            title="Orientação Aion"
+            description="Uma ação pequena para melhorar a próxima decisão."
+          >
+            <div className="flex gap-4 rounded-2xl border border-[#e5dfda] bg-[#fdfcfa] p-5">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#f0e7e3] text-[#b21d31]">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="font-extrabold">Comece pela maior saída.</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {insight}
+                </p>
+                <Button
+                  variant="ghost"
+                  className="mt-3 h-auto px-0 text-primary hover:bg-transparent hover:text-primary"
+                  onClick={() => navigate("/transacoes")}
+                >
+                  Ver lançamentos <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </ChartPanel>
+          <ChartPanel
+            title="Distribuição das saídas"
+            description="Categorias que formam o custo do período."
+          >
+            <ResponsiveContainer width="100%" height={250}>
+              <BarChart
+                data={finance.categories}
+                layout="vertical"
+                margin={{ left: 12 }}
+              >
+                <CartesianGrid horizontal={false} stroke="#e5dfda" />
+                <XAxis type="number" hide />
+                <YAxis
+                  type="category"
+                  dataKey="name"
+                  width={94}
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: "#716a67", fontSize: 12 }}
+                />
+                <Tooltip
+                  formatter={(value: number) => money(value)}
+                  contentStyle={{
+                    borderRadius: 14,
+                    border: "1px solid #e5dfda",
+                  }}
+                />
+                <Bar
+                  dataKey="value"
+                  name="Saídas"
+                  fill="#b21d31"
+                  radius={[0, 8, 8, 0]}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartPanel>
+          <ChartPanel
+            title="Sinais de operação"
+            description="Indicadores simples para o acompanhamento semanal."
+          >
+            <div className="space-y-4">
+              <StatusLine
+                icon={operationalBalance >= 0 ? TrendingUp : CircleAlert}
+                label={
+                  operationalBalance >= 0
+                    ? "Operação positiva"
+                    : "Atenção ao caixa"
+                }
+                value={
+                  operationalBalance >= 0
+                    ? "Entradas superam as saídas"
+                    : "Saídas superam as entradas"
+                }
+              />
+              <StatusLine
+                icon={CalendarClock}
+                label="Vencimentos"
+                value={`${due.length} obrigação(ões) em acompanhamento`}
+              />
+              <StatusLine
+                icon={CircleDollarSign}
+                label="A receber"
+                value={money(sumAccounts(receivable))}
+              />
+            </div>
+          </ChartPanel>
+        </section>
+      )}
+    </div>
+  );
 }
 
-function Agenda({ accounts }: { accounts: AccountLike[] }) { return <ChartPanel title="Calendário de prazos" description="Pagamentos, recebimentos e obrigações como DAS que merecem acompanhamento"><div className="space-y-3">{accounts.sort((a,b) => +new Date(a.dueDate) - +new Date(b.dueDate)).slice(0,6).map((item) => { const das = /\bdas\b/i.test(`${item.description} ${item.category ?? ""}`); const overdue = item.status === "vencido"; return <div key={`${item.id}-${item.description}`} className="flex items-center justify-between gap-4 rounded-xl bg-secondary/70 px-4 py-3"><div className="min-w-0"><div className="flex items-center gap-2"><p className="truncate text-sm font-extrabold">{item.description}</p>{das && <span className="rounded-md bg-accent px-1.5 py-0.5 text-[0.63rem] font-extrabold uppercase tracking-wider text-primary">DAS</span>}</div><p className={`mt-0.5 text-xs font-bold ${overdue ? "text-primary" : "text-muted-foreground"}`}>{overdue ? "Em atraso" : `Vencimento ${dateLabel(item.dueDate)}`}</p></div><span className="shrink-0 font-extrabold">{money(toAmount(item.amount))}</span></div>; })}{!accounts.length && <p className="py-4 text-sm text-muted-foreground">Sem prazos financeiros cadastrados para acompanhamento.</p>}</div></ChartPanel>; }
-function StatusLine({ icon: Icon, label, value }: { icon: typeof CircleCheck; label: string; value: string }) { return <div className="flex items-center gap-3"><span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-foreground"><Icon className="h-5 w-5"/></span><div className="min-w-0 flex-1"><p className="text-sm font-bold">{label}</p><p className="text-xs text-muted-foreground">{value}</p></div></div>; }
-function sumAccounts(items: AccountLike[]) { return items.reduce((sum, item) => sum + toAmount(item.amount), 0); }
-function buildFinance(transactions: TransactionLike[], categories: Array<{ id: number; name: string }>, financeType: "pessoal" | "empresarial") { const source = transactions.filter((item) => item.financeType === financeType); const income = source.filter((item) => item.type === "receita").reduce((sum, item) => sum + toAmount(item.amount), 0); const expense = source.filter((item) => item.type === "despesa").reduce((sum, item) => sum + toAmount(item.amount), 0); const categoryName = new Map(categories.map((item) => [item.id, item.name])); const categoryMap = new Map<string, number>(); source.filter((item) => item.type === "despesa").forEach((item) => { const name = item.categoryId ? categoryName.get(item.categoryId) ?? "Sem categoria" : "Sem categoria"; categoryMap.set(name, (categoryMap.get(name) ?? 0) + toAmount(item.amount)); }); const week = Array.from({ length: 7 }, (_, index) => { const date = new Date(); date.setHours(0, 0, 0, 0); date.setDate(date.getDate() - (6 - index)); const matching = source.filter((item) => { const entry = new Date(item.date); return entry.getFullYear() === date.getFullYear() && entry.getMonth() === date.getMonth() && entry.getDate() === date.getDate(); }); const receita = matching.filter((item) => item.type === "receita").reduce((sum, item) => sum + toAmount(item.amount), 0); const despesa = matching.filter((item) => item.type === "despesa").reduce((sum, item) => sum + toAmount(item.amount), 0); return { label: date.toLocaleDateString("pt-BR", { weekday: "short" }).replace(".", ""), receita, despesa, saldo: receita - despesa }; }); return { income, expense, categories: Array.from(categoryMap, ([name, value]) => ({ name, value })).sort((a,b) => b.value-a.value).slice(0,5), weekly: week }; }
+function Agenda({ accounts }: { accounts: AccountLike[] }) {
+  return (
+    <ChartPanel
+      title="Calendário de prazos"
+      description="Pagamentos, recebimentos e obrigações como DAS que merecem acompanhamento"
+    >
+      <div className="space-y-3">
+        {accounts
+          .sort((a, b) => +new Date(a.dueDate) - +new Date(b.dueDate))
+          .slice(0, 6)
+          .map(item => {
+            const das = /\bdas\b/i.test(
+              `${item.description} ${item.category ?? ""}`
+            );
+            const overdue = item.status === "vencido";
+            return (
+              <div
+                key={`${item.id}-${item.description}`}
+                className="flex items-center justify-between gap-4 rounded-xl bg-secondary/70 px-4 py-3"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="truncate text-sm font-extrabold">
+                      {item.description}
+                    </p>
+                    {das && (
+                      <span className="rounded-md bg-accent px-1.5 py-0.5 text-[0.63rem] font-extrabold uppercase tracking-wider text-primary">
+                        DAS
+                      </span>
+                    )}
+                  </div>
+                  <p
+                    className={`mt-0.5 text-xs font-bold ${overdue ? "text-primary" : "text-muted-foreground"}`}
+                  >
+                    {overdue
+                      ? "Em atraso"
+                      : `Vencimento ${dateLabel(item.dueDate)}`}
+                  </p>
+                </div>
+                <span className="shrink-0 font-extrabold">
+                  {money(toAmount(item.amount))}
+                </span>
+              </div>
+            );
+          })}
+        {!accounts.length && (
+          <p className="py-4 text-sm text-muted-foreground">
+            Sem prazos financeiros cadastrados para acompanhamento.
+          </p>
+        )}
+      </div>
+    </ChartPanel>
+  );
+}
+function StatusLine({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof CircleCheck;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-secondary text-foreground">
+        <Icon className="h-5 w-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold">{label}</p>
+        <p className="text-xs text-muted-foreground">{value}</p>
+      </div>
+    </div>
+  );
+}
+function sumAccounts(items: AccountLike[]) {
+  return items.reduce((sum, item) => sum + toAmount(item.amount), 0);
+}
+function buildFinance(
+  transactions: TransactionLike[],
+  categories: Array<{ id: number; name: string }>,
+  financeType: "pessoal" | "empresarial"
+) {
+  const source = transactions.filter(item => item.financeType === financeType);
+  const income = source
+    .filter(item => item.type === "receita")
+    .reduce((sum, item) => sum + toAmount(item.amount), 0);
+  const expense = source
+    .filter(item => item.type === "despesa")
+    .reduce((sum, item) => sum + toAmount(item.amount), 0);
+  const categoryName = new Map(categories.map(item => [item.id, item.name]));
+  const categoryMap = new Map<string, number>();
+  source
+    .filter(item => item.type === "despesa")
+    .forEach(item => {
+      const name = item.categoryId
+        ? (categoryName.get(item.categoryId) ?? "Sem categoria")
+        : "Sem categoria";
+      categoryMap.set(
+        name,
+        (categoryMap.get(name) ?? 0) + toAmount(item.amount)
+      );
+    });
+  const week = Array.from({ length: 7 }, (_, index) => {
+    const date = new Date();
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() - (6 - index));
+    const matching = source.filter(item => {
+      const entry = new Date(item.date);
+      return (
+        entry.getFullYear() === date.getFullYear() &&
+        entry.getMonth() === date.getMonth() &&
+        entry.getDate() === date.getDate()
+      );
+    });
+    const receita = matching
+      .filter(item => item.type === "receita")
+      .reduce((sum, item) => sum + toAmount(item.amount), 0);
+    const despesa = matching
+      .filter(item => item.type === "despesa")
+      .reduce((sum, item) => sum + toAmount(item.amount), 0);
+    return {
+      label: date
+        .toLocaleDateString("pt-BR", { weekday: "short" })
+        .replace(".", ""),
+      receita,
+      despesa,
+      saldo: receita - despesa,
+    };
+  });
+  return {
+    income,
+    expense,
+    categories: Array.from(categoryMap, ([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 5),
+    weekly: week,
+  };
+}
 
-function ConsultantDashboard({ clients, metrics, navigate }: { clients: Array<{ id: number; name: string; businessType: string; status: string }>; metrics?: { activeClients: number; recurringClients: number; cancelledClients: number; delinquentClients: number; overdueBalance: number; delinquentClientIds: number[] }; navigate: (path: string) => void }) { const byType = useMemo(() => ["pessoal", "mei", "profissional_liberal", "pj"].map((type) => ({ name: type === "pessoal" ? "Pessoal" : type === "mei" ? "MEI" : type === "pj" ? "PJ" : "Prof. liberal", value: clients.filter((item) => item.businessType === type).length })).filter((item) => item.value > 0), [clients]); const active = metrics?.activeClients ?? clients.filter((item) => item.status === "ativo").length; const delinquentClients = clients.filter((client) => metrics?.delinquentClientIds.includes(client.id)); return <div className="aion-page"><section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="aion-eyebrow">Consultor Aion</p><h2 className="aion-title">Sua operação BPO, com direção.</h2><p className="mt-2 max-w-2xl text-muted-foreground">Acompanhe a carteira, os contratos recorrentes e as pendências que pedem ação antes da próxima rotina financeira.</p></div><Button className="min-h-11" onClick={() => navigate("/operacao")}>Abrir operação BPO <ChevronRight className="ml-1 h-4 w-4" /></Button></section><section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4"><Metric label="Carteira ativa" value={String(active)} note="Clientes em acompanhamento" tone="positive" icon={UsersRound}/><Metric label="Clientes recorrentes" value={String(metrics?.recurringClients ?? 0)} note="Contratos marcados como recorrentes" icon={CircleCheck}/><Metric label="Inadimplências" value={String(metrics?.delinquentClients ?? 0)} note={metrics?.overdueBalance ? `${money(metrics.overdueBalance)} em atraso` : "Sem valores em atraso"} tone={(metrics?.delinquentClients ?? 0) ? "negative" : "positive"} icon={CircleAlert}/><Metric label="Cancelamentos" value={String(metrics?.cancelledClients ?? 0)} note="Clientes marcados como inativos" tone={(metrics?.cancelledClients ?? 0) ? "negative" : "default"} icon={TrendingDown}/></section><section className="mt-5 grid gap-5 xl:grid-cols-[.82fr_1.18fr]"><ChartPanel title="Composição da carteira" description="Distribuição por jornada financeira">{byType.length ? <ResponsiveContainer width="100%" height={290}><PieChart><Pie data={byType} dataKey="value" nameKey="name" innerRadius={62} outerRadius={95} paddingAngle={3}>{byType.map((item,index) => <Cell key={item.name} fill={COLORS[index % COLORS.length]}/>)}</Pie><Tooltip contentStyle={{ borderRadius: 14, border: "1px solid #e5dfda" }}/><Legend verticalAlign="bottom" iconType="circle"/></PieChart></ResponsiveContainer> : <EmptyState text="Sua carteira ainda está vazia." action="Cadastrar cliente" onAction={() => navigate("/clientes")}/>}</ChartPanel><ChartPanel title="Prioridades da operação" description="Clientes com pendências vencidas ou próximos passos de acompanhamento"><div className="space-y-3">{(delinquentClients.length ? delinquentClients : clients.filter((client) => client.status === "em_onboarding")).slice(0,5).map((client) => <button key={client.id} onClick={() => navigate(`/clientes/${client.id}/dashboard`)} className="flex min-h-16 w-full items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 text-left transition hover:border-primary/45 hover:bg-accent/40"><span className="min-w-0"><span className="block truncate font-extrabold">{client.name}</span><span className="mt-0.5 block text-xs text-muted-foreground">{delinquentClients.some((item) => item.id === client.id) ? "Há valores em atraso" : "Em onboarding"}</span></span><ChevronRight className="h-4 w-4 shrink-0 text-primary"/></button>)}{!delinquentClients.length && !clients.some((client) => client.status === "em_onboarding") && <p className="py-4 text-sm text-muted-foreground">Não há pendências críticas identificadas na carteira.</p>}</div></ChartPanel></section></div>; }
+function ConsultantDashboard({
+  clients,
+  metrics,
+  navigate,
+}: {
+  clients: Array<{
+    id: number;
+    name: string;
+    businessType: string;
+    status: string;
+  }>;
+  metrics?: {
+    activeClients: number;
+    recurringClients: number;
+    cancelledClients: number;
+    delinquentClients: number;
+    overdueBalance: number;
+    delinquentClientIds: number[];
+  };
+  navigate: (path: string) => void;
+}) {
+  const byType = useMemo(
+    () =>
+      ["pessoal", "mei", "profissional_liberal", "pj"]
+        .map(type => ({
+          name:
+            type === "pessoal"
+              ? "Pessoal"
+              : type === "mei"
+                ? "MEI"
+                : type === "pj"
+                  ? "PJ"
+                  : "Prof. liberal",
+          value: clients.filter(item => item.businessType === type).length,
+        }))
+        .filter(item => item.value > 0),
+    [clients]
+  );
+  const active =
+    metrics?.activeClients ??
+    clients.filter(item => item.status === "ativo").length;
+  const delinquentClients = clients.filter(client =>
+    metrics?.delinquentClientIds.includes(client.id)
+  );
+  return (
+    <div className="aion-page">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="aion-eyebrow">Consultor Aion</p>
+          <h2 className="aion-title">Sua operação BPO, com direção.</h2>
+          <p className="mt-2 max-w-2xl text-muted-foreground">
+            Acompanhe a carteira, os contratos recorrentes e as pendências que
+            pedem ação antes da próxima rotina financeira.
+          </p>
+        </div>
+        <Button className="min-h-11" onClick={() => navigate("/operacao")}>
+          Abrir operação BPO <ChevronRight className="ml-1 h-4 w-4" />
+        </Button>
+      </section>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Metric
+          label="Carteira ativa"
+          value={String(active)}
+          note="Clientes em acompanhamento"
+          tone="positive"
+          icon={UsersRound}
+        />
+        <Metric
+          label="Clientes recorrentes"
+          value={String(metrics?.recurringClients ?? 0)}
+          note="Contratos marcados como recorrentes"
+          icon={CircleCheck}
+        />
+        <Metric
+          label="Inadimplências"
+          value={String(metrics?.delinquentClients ?? 0)}
+          note={
+            metrics?.overdueBalance
+              ? `${money(metrics.overdueBalance)} em atraso`
+              : "Sem valores em atraso"
+          }
+          tone={(metrics?.delinquentClients ?? 0) ? "negative" : "positive"}
+          icon={CircleAlert}
+        />
+        <Metric
+          label="Cancelamentos"
+          value={String(metrics?.cancelledClients ?? 0)}
+          note="Clientes marcados como inativos"
+          tone={(metrics?.cancelledClients ?? 0) ? "negative" : "default"}
+          icon={TrendingDown}
+        />
+      </section>
+      <section className="mt-5 grid gap-5 xl:grid-cols-[.82fr_1.18fr]">
+        <ChartPanel
+          title="Composição da carteira"
+          description="Distribuição por jornada financeira"
+        >
+          {byType.length ? (
+            <ResponsiveContainer width="100%" height={290}>
+              <PieChart>
+                <Pie
+                  data={byType}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={62}
+                  outerRadius={95}
+                  paddingAngle={3}
+                >
+                  {byType.map((item, index) => (
+                    <Cell
+                      key={item.name}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 14,
+                    border: "1px solid #e5dfda",
+                  }}
+                />
+                <Legend verticalAlign="bottom" iconType="circle" />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyState
+              text="Sua carteira ainda está vazia."
+              action="Cadastrar cliente"
+              onAction={() => navigate("/clientes")}
+            />
+          )}
+        </ChartPanel>
+        <ChartPanel
+          title="Prioridades da operação"
+          description="Clientes com pendências vencidas ou próximos passos de acompanhamento"
+        >
+          <div className="space-y-3">
+            {(delinquentClients.length
+              ? delinquentClients
+              : clients.filter(client => client.status === "em_onboarding")
+            )
+              .slice(0, 5)
+              .map(client => (
+                <button
+                  key={client.id}
+                  onClick={() => navigate(`/clientes/${client.id}/dashboard`)}
+                  className="flex min-h-16 w-full items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 text-left transition hover:border-primary/45 hover:bg-accent/40"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-extrabold">
+                      {client.name}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      {delinquentClients.some(item => item.id === client.id)
+                        ? "Há valores em atraso"
+                        : "Em onboarding"}
+                    </span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-primary" />
+                </button>
+              ))}
+            {!delinquentClients.length &&
+              !clients.some(client => client.status === "em_onboarding") && (
+                <p className="py-4 text-sm text-muted-foreground">
+                  Não há pendências críticas identificadas na carteira.
+                </p>
+              )}
+          </div>
+        </ChartPanel>
+      </section>
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -105,28 +1507,140 @@ export default function Dashboard() {
   const isConsultor = user?.role === "consultor_aion" || user?.role === "admin";
   const match = location.match(/^\/clientes\/(\d+)\/dashboard$/);
   const requestedClientId = match ? Number(match[1]) : undefined;
-  const navigateWithinContext = (path: string) => requestedClientId ? (path === "/dashboard" ? `/clientes/${requestedClientId}/dashboard` : `/clientes/${requestedClientId}${path}`) : path;
-  const { data: ownClient, isLoading: ownClientLoading } = trpc.clients.me.useQuery(undefined, { enabled: !!user && !isConsultor });
+  const navigateWithinContext = (path: string) =>
+    requestedClientId
+      ? path === "/dashboard"
+        ? `/clientes/${requestedClientId}/dashboard`
+        : `/clientes/${requestedClientId}${path}`
+      : path;
+  const { data: ownClient, isLoading: ownClientLoading } =
+    trpc.clients.me.useQuery(undefined, { enabled: !!user && !isConsultor });
 
   useEffect(() => {
     if (isConsultor || requestedClientId || !ownClient?.businessType) return;
-    const expectedPath = ownClient.businessType === "mei" ? "/mei" : journeyPath(journeyFromBusinessType(ownClient.businessType));
-    if (["/dashboard", "/pessoal", "/negocio", "/mei"].includes(location) && location !== expectedPath) navigate(expectedPath);
-  }, [isConsultor, location, navigate, ownClient?.businessType, requestedClientId]);
+    const expectedPath =
+      ownClient.businessType === "mei"
+        ? "/mei"
+        : journeyPath(journeyFromBusinessType(ownClient.businessType));
+    if (
+      ["/dashboard", "/pessoal", "/negocio", "/mei"].includes(location) &&
+      location !== expectedPath
+    )
+      navigate(expectedPath);
+  }, [
+    isConsultor,
+    location,
+    navigate,
+    ownClient?.businessType,
+    requestedClientId,
+  ]);
 
   const activeClientId = requestedClientId ?? ownClient?.id;
-  const { data: selectedClient } = trpc.clients.get.useQuery({ clientId: activeClientId ?? 0 }, { enabled: !!activeClientId });
-  const { data: clients = [], isLoading: clientListLoading } = trpc.clients.list.useQuery(undefined, { enabled: isConsultor && !requestedClientId });
-  const { data: consultantMetrics } = trpc.consultantMetrics.summary.useQuery(undefined, { enabled: isConsultor && !requestedClientId });
-  const { data: transactions = [], isLoading: transactionsLoading } = trpc.transactions.list.useQuery({ clientId: activeClientId ?? 0, limit: 100 }, { enabled: !!activeClientId });
-  const { data: categories = [] } = trpc.transactions.categoriesForClient.useQuery({ clientId: activeClientId ?? 0 }, { enabled: !!activeClientId });
-  const { data: accountsPayable = [] } = trpc.accountsPayable.list.useQuery({ clientId: activeClientId ?? 0 }, { enabled: !!activeClientId });
-  const { data: accountsReceivable = [] } = trpc.accountsReceivable.list.useQuery({ clientId: activeClientId ?? 0 }, { enabled: !!activeClientId });
-  const { data: goals = [] } = trpc.financialGoals.list.useQuery({ clientId: activeClientId ?? 0 }, { enabled: !!activeClientId });
-  const { data: notifications = [] } = trpc.notifications.list.useQuery({ clientId: activeClientId ?? 0 }, { enabled: !!activeClientId });
-  const loading = !isConsultor ? ownClientLoading || (!!activeClientId && transactionsLoading) : (!!requestedClientId && transactionsLoading) || (!requestedClientId && clientListLoading);
+  const { data: selectedClient } = trpc.clients.get.useQuery(
+    { clientId: activeClientId ?? 0 },
+    { enabled: !!activeClientId }
+  );
+  const { data: clients = [], isLoading: clientListLoading } =
+    trpc.clients.list.useQuery(undefined, {
+      enabled: isConsultor && !requestedClientId,
+    });
+  const { data: consultantMetrics } = trpc.consultantMetrics.summary.useQuery(
+    undefined,
+    { enabled: isConsultor && !requestedClientId }
+  );
+  const { data: transactions = [], isLoading: transactionsLoading } =
+    trpc.transactions.list.useQuery(
+      { clientId: activeClientId ?? 0, limit: 100 },
+      { enabled: !!activeClientId }
+    );
+  const { data: categories = [] } =
+    trpc.transactions.categoriesForClient.useQuery(
+      { clientId: activeClientId ?? 0 },
+      { enabled: !!activeClientId }
+    );
+  const { data: accountsPayable = [] } = trpc.accountsPayable.list.useQuery(
+    { clientId: activeClientId ?? 0 },
+    { enabled: !!activeClientId }
+  );
+  const { data: accountsReceivable = [] } =
+    trpc.accountsReceivable.list.useQuery(
+      { clientId: activeClientId ?? 0 },
+      { enabled: !!activeClientId }
+    );
+  const { data: goals = [] } = trpc.financialGoals.list.useQuery(
+    { clientId: activeClientId ?? 0 },
+    { enabled: !!activeClientId }
+  );
+  const { data: notifications = [] } = trpc.notifications.list.useQuery(
+    { clientId: activeClientId ?? 0 },
+    { enabled: !!activeClientId }
+  );
+  const loading = !isConsultor
+    ? ownClientLoading || (!!activeClientId && transactionsLoading)
+    : (!!requestedClientId && transactionsLoading) ||
+      (!requestedClientId && clientListLoading);
   const client = selectedClient ?? ownClient;
   const businessType = client?.businessType;
 
-  return <AionDashboardLayout>{loading ? <div className="flex min-h-[52vh] items-center justify-center"><Spinner className="h-8 w-8 text-primary" /></div> : !isConsultor && !client ? <div className="aion-page"><EmptyState text="Seu acesso ainda não está vinculado a um perfil financeiro." action="Voltar ao início" onAction={() => navigate("/")} /></div> : <>{isConsultor && !requestedClientId ? <DailyFocus notifications={[]} transactions={[]} clients={clients} navigate={navigate} /> : <DailyFocus notifications={notifications} transactions={transactions} navigate={(path) => navigate(navigateWithinContext(path))} />}{isConsultor && !requestedClientId ? <ConsultantDashboard clients={clients} metrics={consultantMetrics} navigate={navigate} /> : businessType === "pessoal" ? <PersonalDashboard clientId={activeClientId!} transactions={transactions} accounts={accountsPayable} categories={categories} goals={goals} navigate={(path) => navigate(navigateWithinContext(path))} /> : <BusinessDashboard clientId={activeClientId!} transactions={transactions} accountsPayable={accountsPayable} accountsReceivable={accountsReceivable} categories={categories} goals={goals} navigate={(path) => navigate(navigateWithinContext(path))} label={client?.businessName || client?.name || "sua empresa"} />}</>}</AionDashboardLayout>;
+  return (
+    <AionDashboardLayout>
+      {loading ? (
+        <div className="flex min-h-[52vh] items-center justify-center">
+          <Spinner className="h-8 w-8 text-primary" />
+        </div>
+      ) : !isConsultor && !client ? (
+        <div className="aion-page">
+          <EmptyState
+            text="Seu acesso ainda não está vinculado a um perfil financeiro."
+            action="Voltar ao início"
+            onAction={() => navigate("/")}
+          />
+        </div>
+      ) : (
+        <>
+          {isConsultor && !requestedClientId ? (
+            <DailyFocus
+              notifications={[]}
+              transactions={[]}
+              clients={clients}
+              navigate={navigate}
+            />
+          ) : (
+            <DailyFocus
+              notifications={notifications}
+              transactions={transactions}
+              navigate={path => navigate(navigateWithinContext(path))}
+            />
+          )}
+          {isConsultor && !requestedClientId ? (
+            <ConsultantDashboard
+              clients={clients}
+              metrics={consultantMetrics}
+              navigate={navigate}
+            />
+          ) : businessType === "pessoal" ? (
+            <PersonalDashboard
+              clientId={activeClientId!}
+              transactions={transactions}
+              accounts={accountsPayable}
+              categories={categories}
+              goals={goals}
+              navigate={path => navigate(navigateWithinContext(path))}
+            />
+          ) : (
+            <BusinessDashboard
+              clientId={activeClientId!}
+              transactions={transactions}
+              accountsPayable={accountsPayable}
+              accountsReceivable={accountsReceivable}
+              categories={categories}
+              goals={goals}
+              navigate={path => navigate(navigateWithinContext(path))}
+              label={client?.businessName || client?.name || "sua empresa"}
+            />
+          )}
+        </>
+      )}
+    </AionDashboardLayout>
+  );
 }

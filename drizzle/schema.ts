@@ -8,6 +8,7 @@ import {
   decimal,
   boolean,
   json,
+  uniqueIndex,
 } from "drizzle-orm/mysql-core";
 
 /**
@@ -155,6 +156,53 @@ export type ServiceSubscription = typeof serviceSubscriptions.$inferSelect;
 export type InsertServiceSubscription = typeof serviceSubscriptions.$inferInsert;
 
 /**
+ * Regras para compromissos mensais ou anuais. A regra nunca representa um
+ * movimento efetivo; ela apenas gera previsões que devem ser confirmadas.
+ */
+export const recurringTransactions = mysqlTable("recurring_transactions", {
+  id: int("id").autoincrement().primaryKey(),
+  clientId: int("clientId").notNull(),
+  categoryId: int("categoryId"),
+  description: varchar("description", { length: 500 }).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  type: mysqlEnum("type", ["receita", "despesa"]).notNull(),
+  financeType: mysqlEnum("financeType", ["pessoal", "empresarial"]).default("empresarial").notNull(),
+  frequency: mysqlEnum("frequency", ["mensal", "anual"]).notNull(),
+  dueDay: int("dueDay").notNull(),
+  dueMonth: int("dueMonth"),
+  status: mysqlEnum("status", ["ativa", "suspensa"]).default("ativa").notNull(),
+  nextOccurrence: timestamp("nextOccurrence").notNull(),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type RecurringTransaction = typeof recurringTransactions.$inferSelect;
+export type InsertRecurringTransaction = typeof recurringTransactions.$inferInsert;
+
+/**
+ * Instâncias previstas por competência. O índice composto protege a geração
+ * idempotente e o vínculo opcional evita duplicar a transação confirmada.
+ */
+export const recurringTransactionOccurrences = mysqlTable(
+  "recurring_transaction_occurrences",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    recurringTransactionId: int("recurringTransactionId").notNull(),
+    clientId: int("clientId").notNull(),
+    scheduledDate: timestamp("scheduledDate").notNull(),
+    status: mysqlEnum("status", ["previsto", "confirmado", "adiado", "cancelado"]).default("previsto").notNull(),
+    transactionId: int("transactionId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("recurring_occurrence_competency_unique").on(table.recurringTransactionId, table.scheduledDate)],
+);
+
+export type RecurringTransactionOccurrence = typeof recurringTransactionOccurrences.$inferSelect;
+export type InsertRecurringTransactionOccurrence = typeof recurringTransactionOccurrences.$inferInsert;
+
+/**
  * Financial goals ("caixinhas") for personal and business financial planning.
  */
 export const financialGoals = mysqlTable("financial_goals", {
@@ -224,7 +272,7 @@ export const financialReports = mysqlTable("financial_reports", {
   id: int("id").autoincrement().primaryKey(),
   clientId: int("clientId").notNull(),
   month: timestamp("month").notNull(), // First day of the month
-  reportType: mysqlEnum("reportType", ["fluxo_caixa", "dre", "completo"]).notNull(),
+  reportType: mysqlEnum("reportType", ["fluxo_caixa", "dre", "completo", "resumo_pessoal"]).notNull(),
   fileKey: varchar("fileKey", { length: 255 }), // S3 key for the PDF
   fileUrl: text("fileUrl"), // Presigned URL for download
   summary: json("summary").$type<{

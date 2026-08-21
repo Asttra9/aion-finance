@@ -28,6 +28,7 @@ export default function Transacoes() {
   const [categoryFilter, setCategoryFilter] = useState("todas");
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
+  const [dateOrder, setDateOrder] = useState<"recentes" | "antigas">("recentes");
   const [currentPage, setCurrentPage] = useState(1);
   const [formData, setFormData] = useState({
     description: "",
@@ -36,8 +37,9 @@ export default function Transacoes() {
     financeType: "empresarial" as const,
     date: new Date().toISOString().split("T")[0],
   });
+  const utils = trpc.useUtils();
 
-  const { data: transactions, isLoading, refetch } = trpc.transactions.list.useQuery(
+  const { data: transactions, isLoading } = trpc.transactions.list.useQuery(
     { clientId: clientId || 0 },
     { enabled: !!clientId }
   );
@@ -59,8 +61,8 @@ export default function Transacoes() {
   });
 
   const createMutation = trpc.transactions.create.useMutation({
-    onSuccess: () => {
-      refetch();
+    onSuccess: async () => {
+      await utils.transactions.list.invalidate({ clientId: clientId || 0 });
       setOpen(false);
       setFormData({
         description: "",
@@ -86,14 +88,17 @@ export default function Transacoes() {
     });
   };
 
-  const filteredTransactions = transactions?.filter((t) => {
+  const filteredTransactions = (transactions?.filter((t) => {
     const transactionDate = new Date(t.date);
     const isTypeMatch = filterType === "todas" || t.type === filterType;
     const isCategoryMatch = categoryFilter === "todas" || t.categoryId === Number(categoryFilter);
     const isAfterStart = !periodStart || transactionDate >= new Date(`${periodStart}T00:00:00`);
     const isBeforeEnd = !periodEnd || transactionDate <= new Date(`${periodEnd}T23:59:59`);
     return isTypeMatch && isCategoryMatch && isAfterStart && isBeforeEnd;
-  }) || [];
+  }) || []).sort((left, right) => {
+    const difference = new Date(left.date).getTime() - new Date(right.date).getTime();
+    return dateOrder === "recentes" ? -difference : difference;
+  });
 
   const totalIncome = filteredTransactions
     .filter((t) => t.type === "receita")
@@ -332,6 +337,10 @@ export default function Transacoes() {
                 <Select value={categoryFilter} onValueChange={(value) => { setCategoryFilter(value); setCurrentPage(1); }}>
                   <SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Categoria" /></SelectTrigger>
                   <SelectContent><SelectItem value="todas">Categorias</SelectItem>{categoriesQuery.data?.map((category) => <SelectItem key={category.id} value={String(category.id)}>{category.name}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={dateOrder} onValueChange={(value: "recentes" | "antigas") => { setDateOrder(value); setCurrentPage(1); }}>
+                  <SelectTrigger className="w-full xl:w-48" aria-label="Ordenação por data"><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="recentes">Mais recentes primeiro</SelectItem><SelectItem value="antigas">Mais antigas primeiro</SelectItem></SelectContent>
                 </Select>
                 <Input aria-label="Data inicial" type="date" value={periodStart} onChange={(event) => { setPeriodStart(event.target.value); setCurrentPage(1); }} className="w-full xl:w-36" />
                 <Input aria-label="Data final" type="date" value={periodEnd} onChange={(event) => { setPeriodEnd(event.target.value); setCurrentPage(1); }} className="w-full xl:w-36" />

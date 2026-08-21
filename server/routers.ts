@@ -57,6 +57,21 @@ function buildTransactionsCsv(
   return `\uFEFF${[header, ...rows].map((row) => row.map(csvCell).join(";")).join("\n")}`;
 }
 
+function getNextRecurringOccurrence(frequency: "mensal" | "anual", dueDay: number, dueMonth?: number) {
+  const now = new Date();
+  const targetMonth = frequency === "anual" ? (dueMonth ?? now.getMonth() + 1) - 1 : now.getMonth();
+  const lastDay = new Date(now.getFullYear(), targetMonth + 1, 0).getDate();
+  const firstAttempt = new Date(now.getFullYear(), targetMonth, Math.min(dueDay, lastDay));
+  if (firstAttempt > now) return firstAttempt;
+  if (frequency === "anual") {
+    const nextYearLastDay = new Date(now.getFullYear() + 1, targetMonth + 1, 0).getDate();
+    return new Date(now.getFullYear() + 1, targetMonth, Math.min(dueDay, nextYearLastDay));
+  }
+  const nextMonth = now.getMonth() + 1;
+  const nextMonthLastDay = new Date(now.getFullYear(), nextMonth + 1, 0).getDate();
+  return new Date(now.getFullYear(), nextMonth, Math.min(dueDay, nextMonthLastDay));
+}
+
 const defaultSteps = [
   "Definir atividade e dados do MEI",
   "Validar documentos do titular",
@@ -112,7 +127,21 @@ export const appRouter = router({
       billingDay: z.number().int().min(1).max(31),
     })).mutation(async ({ input, ctx }) => {
       await requireClientAccess(input.clientId, ctx);
-      return db.createServiceSubscription({ clientId: input.clientId, name: input.name, amount: toDecimal(input.amount), billingDay: input.billingDay, status: "ativa" });
+      const subscription = await db.createServiceSubscription({ clientId: input.clientId, name: input.name, amount: toDecimal(input.amount), billingDay: input.billingDay, status: "ativa" });
+      const recurringTransaction = await db.createRecurringTransaction({
+        clientId: input.clientId,
+        description: input.name,
+        amount: toDecimal(input.amount),
+        type: "despesa",
+        financeType: "pessoal",
+        frequency: "mensal",
+        dueDay: input.billingDay,
+        nextOccurrence: getNextRecurringOccurrence("mensal", input.billingDay),
+        status: "ativa",
+        notes: "Criada a partir de uma assinatura pessoal.",
+      });
+      await db.ensureRecurringOccurrencesForClient(input.clientId);
+      return { subscription, recurringTransaction };
     }),
   }),
 
@@ -270,6 +299,79 @@ export const appRouter = router({
     }),
   }),
 
+  recurringTransactions: router({
+    list: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => {
+      await requireClientAccess(input.clientId, ctx);
+      return db.getRecurringTransactionsByClient(input.clientId);
+    }),
+    occurrences: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => {
+      await requireClientAccess(input.clientId, ctx);
+      return db.getRecurringOccurrencesByClient(input.clientId);
+    }),
+    create: consultorProcedure.input(z.object({
+      clientId: z.number(),
+      categoryId: z.number().optional(),
+      description: z.string().trim().min(2).max(500),
+      amount: money,
+      type: z.enum(["receita", "despesa"]),
+      financeType: z.enum(["pessoal", "empresarial"]),
+      frequency: z.enum(["mensal", "anual"]),
+      dueDay: z.number().int().min(1).max(31),
+      dueMonth: z.number().int().min(1).max(12).optional(),
+      notes: z.string().trim().max(2000).optional(),
+    }).superRefine((value, ctx) => {
+      if (value.frequency === "anual" && !value.dueMonth) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Informe o mês de vencimento para a recorrência anual.", path: ["dueMonth"] });
+    })).mutation(async ({ input, ctx }) => {
+      const client = await db.getClientById(input.clientId);
+      if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      const nextOccurrence = getNextRecurringOccurrence(input.frequency, input.dueDay, input.dueMonth);
+      const result = await db.createRecurringTransaction({
+        clientId: input.clientId,
+        categoryId: input.categoryId,
+        description: input.description,
+        amount: toDecimal(input.amount),
+        type: input.type,
+        financeType: input.financeType,
+        frequency: input.frequency,
+        dueDay: input.dueDay,
+        dueMonth: input.frequency === "anual" ? input.dueMonth : undefined,
+        nextOccurrence,
+        notes: input.notes,
+        status: "ativa",
+      });
+      await db.ensureRecurringOccurrencesForClient(input.clientId);
+      return result;
+    }),
+    updateStatus: consultorProcedure.input(z.object({ recurringTransactionId: z.number(), status: z.enum(["ativa", "suspensa"]) })).mutation(async ({ input, ctx }) => {
+      const rule = await db.getRecurringTransactionById(input.recurringTransactionId);
+      const client = rule && await db.getClientById(rule.clientId);
+      if (!rule || !client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      return db.updateRecurringTransaction(rule.id, { status: input.status });
+    }),
+    generate: consultorProcedure.input(z.object({ clientId: z.number(), daysAhead: z.number().int().min(1).max(366).default(60) })).mutation(async ({ input, ctx }) => {
+      const client = await db.getClientById(input.clientId);
+      if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      return { created: await db.ensureRecurringOccurrencesForClient(input.clientId, input.daysAhead) };
+    }),
+    confirm: consultorProcedure.input(z.object({ occurrenceId: z.number() })).mutation(async ({ input, ctx }) => {
+      const item = await db.getRecurringOccurrenceById(input.occurrenceId);
+      const client = item && await db.getClientById(item.occurrence.clientId);
+      if (!item || !client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      try {
+        return await db.confirmRecurringOccurrence(input.occurrenceId);
+      } catch (error) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Não foi possível confirmar esta previsão." });
+      }
+    }),
+    updateOccurrenceStatus: consultorProcedure.input(z.object({ occurrenceId: z.number(), status: z.enum(["adiado", "cancelado"]) })).mutation(async ({ input, ctx }) => {
+      const item = await db.getRecurringOccurrenceById(input.occurrenceId);
+      const client = item && await db.getClientById(item.occurrence.clientId);
+      if (!item || !client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      if (item.occurrence.status === "confirmado") throw new TRPCError({ code: "BAD_REQUEST", message: "Uma previsão confirmada não pode ser alterada." });
+      return db.updateRecurringOccurrenceStatus(input.occurrenceId, input.status);
+    }),
+  }),
+
   accountsPayable: router({
     list: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => { await requireClientAccess(input.clientId, ctx); return db.getAccountsPayableByClient(input.clientId); }),
     create: consultorProcedure.input(z.object({ clientId: z.number(), description: z.string().min(2), amount: money, dueDate: z.date(), vendor: z.string().optional(), category: z.string().optional(), notes: z.string().optional() })).mutation(async ({ input, ctx }) => {
@@ -365,17 +467,39 @@ export const appRouter = router({
 
   reports: router({
     list: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => { await requireClientAccess(input.clientId, ctx); return db.getReportsByClient(input.clientId); }),
-    generate: consultorProcedure.input(z.object({ clientId: z.number(), month: z.number().min(1).max(12), year: z.number().min(2020).max(2100), reportType: z.enum(["dre", "fluxo_caixa"]) })).mutation(async ({ input, ctx }) => {
-      const client = await db.getClientById(input.clientId); if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+    generate: protectedProcedure.input(z.object({ clientId: z.number(), month: z.number().min(1).max(12), year: z.number().min(2020).max(2100), reportType: z.enum(["dre", "fluxo_caixa", "resumo_pessoal"]) })).mutation(async ({ input, ctx }) => {
+      const client = await requireClientAccess(input.clientId, ctx);
+      const isPersonal = client.businessType === "pessoal";
+      if (input.reportType === "resumo_pessoal" && !isPersonal) throw new TRPCError({ code: "BAD_REQUEST", message: "O resumo pessoal está disponível apenas para a jornada pessoal." });
+      if (input.reportType === "dre" && isPersonal) throw new TRPCError({ code: "BAD_REQUEST", message: "A DRE gerencial está disponível para a jornada empreendedora." });
       const transactions = await db.getTransactionsByClient(input.clientId);
       const monthly = filterEntriesByMonth(transactions, input.year, input.month);
+      const previousDate = new Date(input.year, input.month - 2, 1);
+      const previous = filterEntriesByMonth(transactions, previousDate.getFullYear(), previousDate.getMonth() + 1);
       const categories = await db.getTransactionCategories(client.consultorId);
       const categoryById = new Map(categories.map((category) => [category.id, category]));
       const reportEntries = monthly.map((transaction) => {
         const category = transaction.categoryId ? categoryById.get(transaction.categoryId) : undefined;
         return { ...transaction, category: category?.name, isFixedCost: category?.isFixedCost };
       });
-      const pdf = await buildFinancialReportPdf({ clientName: client.name, businessName: client.businessName, month: input.month, year: input.year, reportType: input.reportType, transactions: reportEntries });
+      const previousEntries = previous.map((transaction) => {
+        const category = transaction.categoryId ? categoryById.get(transaction.categoryId) : undefined;
+        return { ...transaction, category: category?.name, isFixedCost: category?.isFixedCost };
+      });
+      const [payables, goals] = input.reportType === "resumo_pessoal"
+        ? await Promise.all([db.getAccountsPayableByClient(input.clientId), db.getFinancialGoalsByClient(input.clientId)])
+        : [[], []];
+      const pdf = await buildFinancialReportPdf({
+        clientName: client.name,
+        businessName: client.businessName,
+        month: input.month,
+        year: input.year,
+        reportType: input.reportType,
+        transactions: reportEntries,
+        previousTransactions: previousEntries,
+        upcomingAccounts: payables.filter((account) => account.status === "pendente" || account.status === "vencido").map((account) => ({ description: account.description, amount: account.amount, dueDate: account.dueDate })),
+        goals: goals.map((goal) => ({ name: goal.name, targetAmount: goal.targetAmount, savedAmount: goal.savedAmount })),
+      });
       const fileName = `${input.year}-${String(input.month).padStart(2, "0")}-${input.reportType}.pdf`;
       const stored = await storagePut(`clients/${input.clientId}/reports/${fileName}`, pdf, "application/pdf");
       const summary = { totalIncome: monthly.filter((item) => item.type === "receita").reduce((sum, item) => sum + parseMoney(item.amount), 0), totalExpense: monthly.filter((item) => item.type === "despesa").reduce((sum, item) => sum + parseMoney(item.amount), 0) };

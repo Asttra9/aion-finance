@@ -37,6 +37,15 @@ const dbMocks = vi.hoisted(() => ({
   getNotificationById: vi.fn(),
   createNotification: vi.fn(),
   resolveNotification: vi.fn(),
+  getRecurringTransactionsByClient: vi.fn(),
+  getRecurringTransactionById: vi.fn(),
+  createRecurringTransaction: vi.fn(),
+  updateRecurringTransaction: vi.fn(),
+  ensureRecurringOccurrencesForClient: vi.fn(),
+  getRecurringOccurrencesByClient: vi.fn(),
+  getRecurringOccurrenceById: vi.fn(),
+  confirmRecurringOccurrence: vi.fn(),
+  updateRecurringOccurrenceStatus: vi.fn(),
 }));
 
 vi.mock("./db", async () => {
@@ -148,6 +157,45 @@ describe("transactions.reconcileAllPending", () => {
   it("impede que um cliente execute a conciliação em lote", async () => {
     const caller = appRouter.createCaller(createClientContext());
     await expect(caller.transactions.reconcileAllPending({ clientId: 3 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+});
+
+describe("recurringTransactions", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.getClientById.mockResolvedValue(client);
+    dbMocks.createRecurringTransaction.mockResolvedValue({ id: 81, clientId: 3, status: "ativa" });
+    dbMocks.ensureRecurringOccurrencesForClient.mockResolvedValue(1);
+    dbMocks.getRecurringOccurrenceById.mockResolvedValue({
+      occurrence: { id: 91, clientId: 3, status: "previsto" },
+      rule: { id: 81, clientId: 3, description: "Sistema", amount: "89.90" },
+    });
+    dbMocks.confirmRecurringOccurrence.mockResolvedValue({ transaction: { id: 101 }, occurrence: { id: 91, status: "confirmado" } });
+  });
+
+  it("cria uma regra mensal e prepara a primeira previsão sem lançar a despesa efetiva", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    await caller.recurringTransactions.create({ clientId: 3, description: "Sistema", amount: "89.90", type: "despesa", financeType: "empresarial", frequency: "mensal", dueDay: 10 });
+    expect(dbMocks.createRecurringTransaction).toHaveBeenCalledWith(expect.objectContaining({ clientId: 3, description: "Sistema", status: "ativa", amount: "89.90" }));
+    expect(dbMocks.ensureRecurringOccurrencesForClient).toHaveBeenCalledWith(3);
+  });
+
+  it("atualiza previsões de forma idempotente pela rotina explícita", async () => {
+    dbMocks.ensureRecurringOccurrencesForClient.mockResolvedValue(0);
+    const caller = appRouter.createCaller(createConsultorContext());
+    await expect(caller.recurringTransactions.generate({ clientId: 3, daysAhead: 60 })).resolves.toEqual({ created: 0 });
+    expect(dbMocks.ensureRecurringOccurrencesForClient).toHaveBeenCalledWith(3, 60);
+  });
+
+  it("confirma uma previsão autorizada em lançamento efetivo", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    await expect(caller.recurringTransactions.confirm({ occurrenceId: 91 })).resolves.toEqual(expect.objectContaining({ transaction: { id: 101 } }));
+    expect(dbMocks.confirmRecurringOccurrence).toHaveBeenCalledWith(91);
+  });
+
+  it("impede que o cliente confirme previsões operacionais por contrato interno", async () => {
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.recurringTransactions.confirm({ occurrenceId: 91 })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 

@@ -1,0 +1,1 @@
+ALTER TABLE `financial_reports` MODIFY COLUMN `reportType` enum('fluxo_caixa','dre','completo','resumo_pessoal') NOT NULL;

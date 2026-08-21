@@ -52,7 +52,7 @@ Os procedimentos no servidor verificarão o vínculo entre usuário, cliente e c
 
 O cliente pessoal terá uma visão mensal enxuta, orientada por perguntas práticas: quanto entrou, quanto saiu, qual categoria concentrou gasto, como o resultado mudou e quais compromissos se aproximam. O PDF repete esse resumo em linguagem acessível.
 
-O empreendedor terá um bloco editorial de indicadores, inspirado apenas na hierarquia da referência fornecida: poucos cartões com estado claro e uma tendência mensal. Não haverá métricas de startup, como CAC, runway ou eficiência de vendas, que não sejam apropriadas à gestão de um MEI.
+O empreendedor terá um bloco editorial de indicadores, inspirado apenas na hierarquia da referência fornecida: poucos cartões com estado claro e uma tendência mensal. A **Evolução do Mês** ficará no topo da área analítica, próxima ao histórico e aos indicadores do período, para que a leitura comece pela variação temporal antes do detalhamento complementar. Não haverá métricas de startup, como CAC, runway ou eficiência de vendas, que não sejam apropriadas à gestão de um MEI.
 
 Na tela de movimentações, a ordenação será uma seleção explícita entre “mais recentes primeiro” e “mais antigas primeiro”. Toda criação, confirmação ou importação de lançamento atualizará a lista e os resumos sem exigir recarga manual.
 
