@@ -112,4 +112,4 @@
 - [x] Transformar alertas em botão circular de sino ao lado do usuário no cabeçalho.
 - [x] Alinhar o cabeçalho e a identificação da conta ao padrão visual enviado.
 - [x] Criar testes, typecheck, build e validação visual das novas jornadas.
-- [ ] Salvar checkpoint da evolução de acesso, metas e indicadores.
+- [x] Salvar checkpoint da evolução de acesso, metas e indicadores (`0105135c`).
