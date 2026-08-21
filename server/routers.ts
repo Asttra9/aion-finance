@@ -235,6 +235,11 @@ export const appRouter = router({
       if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
       return db.updateTransaction(input.transactionId, { status: "conciliado", categoryId: input.categoryId, financeType: input.financeType });
     }),
+    reconcileAllPending: consultorProcedure.input(z.object({ clientId: z.number() })).mutation(async ({ input, ctx }) => {
+      const client = await db.getClientById(input.clientId);
+      if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
+      return db.reconcilePendingTransactionsByClient(input.clientId);
+    }),
     delete: consultorProcedure.input(z.object({ transactionId: z.number() })).mutation(async ({ input, ctx }) => {
       const transaction = await db.getTransactionById(input.transactionId);
       if (!transaction) throw new TRPCError({ code: "NOT_FOUND" });

@@ -26,6 +26,7 @@ const dbMocks = vi.hoisted(() => ({
   createFinancialGoalContribution: vi.fn(),
   getFinancialGoalContributionsByClient: vi.fn(),
   getTransactionById: vi.fn(),
+  reconcilePendingTransactionsByClient: vi.fn(),
   createTransaction: vi.fn(),
   updateTransaction: vi.fn(),
   deleteTransaction: vi.fn(),
@@ -103,6 +104,25 @@ describe("notifications.generateDueAlerts", () => {
     const caller = appRouter.createCaller(createConsultorContext());
     await expect(caller.notifications.generateDueAlerts({ clientId: 3, daysAhead: 7 })).resolves.toEqual({ created: 0 });
     expect(dbMocks.createNotification).not.toHaveBeenCalled();
+  });
+});
+
+describe("transactions.reconcileAllPending", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.getClientById.mockResolvedValue(client);
+    dbMocks.reconcilePendingTransactionsByClient.mockResolvedValue({ reconciled: 4 });
+  });
+
+  it("concilia apenas as pendências do cliente autorizado", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    await expect(caller.transactions.reconcileAllPending({ clientId: 3 })).resolves.toEqual({ reconciled: 4 });
+    expect(dbMocks.reconcilePendingTransactionsByClient).toHaveBeenCalledWith(3);
+  });
+
+  it("impede que um cliente execute a conciliação em lote", async () => {
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.transactions.reconcileAllPending({ clientId: 3 })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 

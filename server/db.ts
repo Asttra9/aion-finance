@@ -584,6 +584,21 @@ export async function updateTransaction(
   return db.update(transactions).set(data).where(eq(transactions.id, transactionId));
 }
 
+export async function reconcilePendingTransactionsByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const pending = await db
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(and(eq(transactions.clientId, clientId), eq(transactions.status, "pendente")));
+  if (!pending.length) return { reconciled: 0 };
+  await db
+    .update(transactions)
+    .set({ status: "conciliado" })
+    .where(and(eq(transactions.clientId, clientId), eq(transactions.status, "pendente")));
+  return { reconciled: pending.length };
+}
+
 export async function deleteTransaction(transactionId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

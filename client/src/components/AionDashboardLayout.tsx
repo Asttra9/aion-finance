@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { readSidebarPreference, writeSidebarPreference } from "@/lib/sidebarPreference";
+import { useTheme } from "@/contexts/ThemeContext";
 import {
   Sidebar,
   SidebarContent,
@@ -41,9 +42,11 @@ import {
   FileBarChart2,
   Landmark,
   LogOut,
+  Moon,
   PencilLine,
   ReceiptText,
   Target,
+  Sun,
   UsersRound,
   WalletCards,
 } from "lucide-react";
@@ -61,6 +64,7 @@ const contributionDate = (value: Date | string) => new Date(value).toLocaleDateS
 
 export default function AionDashboardLayout({ children }: AionDashboardLayoutProps) {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [location, navigate] = useLocation();
   const isConsultor = user?.role === "consultor_aion" || user?.role === "admin";
   const { data: linkedClient } = trpc.clients.me.useQuery(undefined, { enabled: !!user && !isConsultor });
@@ -199,20 +203,20 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
             </div>
             <div className="ml-auto flex items-center gap-3">
               <div className="relative" ref={alertsMenuRef}>
-                  <Button type="button" variant="outline" size="icon" aria-expanded={alertsOpen} aria-controls="aion-alerts-menu" onClick={() => setAlertsOpen((open) => !open)} aria-label={`Abrir alertas${unreadAlerts.length ? `: ${unreadAlerts.length} não lido(s)` : ""}`} title="Alertas" className="relative h-11 w-11 rounded-full border-[#d9cfca] bg-white text-[#2d2d2d] shadow-sm transition hover:border-primary hover:bg-accent hover:text-primary">
+                  <Button type="button" variant="outline" size="icon" aria-expanded={alertsOpen} aria-controls="aion-alerts-menu" onClick={() => setAlertsOpen((open) => !open)} aria-label={`Abrir alertas${unreadAlerts.length ? `: ${unreadAlerts.length} não lido(s)` : ""}`} title="Alertas" className="relative h-11 w-11 rounded-full border-border bg-card text-card-foreground shadow-sm transition hover:border-primary hover:bg-accent hover:text-primary">
                     <BellRing className="h-[1.05rem] w-[1.05rem]" />
                     {unreadAlerts.length > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.6rem] font-extrabold text-white ring-2 ring-background" aria-hidden="true">{unreadAlerts.length > 9 ? "9+" : unreadAlerts.length}</span>}
                   </Button>
                 {alertsOpen && <div id="aion-alerts-menu" role="dialog" aria-label="Alertas e aportes" className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[22rem] overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-xl sm:w-[25rem]">
                   <div className="border-b border-border px-5 py-4"><p className="font-extrabold">Alertas e aportes</p><p className="mt-0.5 text-xs text-muted-foreground">O que merece atenção agora.</p></div>
                   {activeClientId ? <div className="max-h-[min(60vh,34rem)] overflow-y-auto">
-                    <section className="px-5 py-4"><div className="flex items-center justify-between gap-3"><p className="text-xs font-extrabold uppercase tracking-[.13em] text-muted-foreground">Alertas recentes</p>{unreadAlerts.length > 0 && <span className="rounded-full bg-[#f9e8eb] px-2 py-0.5 text-[0.65rem] font-extrabold text-primary">{unreadAlerts.length} novo(s)</span>}</div><div className="mt-3 space-y-2">{alerts.slice(0, 3).map((alert) => <div key={alert.id} className="rounded-xl bg-secondary/70 px-3.5 py-3"><div className="flex items-start gap-2"><span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${alert.read ? "bg-[#b8b0aa]" : "bg-primary"}`} /><span className="min-w-0"><span className="block truncate text-sm font-bold">{alert.title}</span><span className="mt-0.5 block line-clamp-2 text-xs text-muted-foreground">{alert.message || "Acompanhe este item pela central de alertas."}</span></span></div></div>)}{!alerts.length && <p className="rounded-xl bg-secondary/60 px-3.5 py-4 text-sm text-muted-foreground">Não há alertas financeiros recentes.</p>}</div></section>
+                    <section className="px-5 py-4"><div className="flex items-center justify-between gap-3"><p className="text-xs font-extrabold uppercase tracking-[.13em] text-muted-foreground">Alertas recentes</p>{unreadAlerts.length > 0 && <span className="rounded-full bg-accent px-2 py-0.5 text-[0.65rem] font-extrabold text-primary">{unreadAlerts.length} novo(s)</span>}</div><div className="mt-3 space-y-2">{alerts.slice(0, 3).map((alert) => <div key={alert.id} className="rounded-xl bg-secondary/70 px-3.5 py-3"><div className="flex items-start gap-2"><span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${alert.read ? "bg-muted-foreground/50" : "bg-primary"}`} /><span className="min-w-0"><span className="block truncate text-sm font-bold">{alert.title}</span><span className="mt-0.5 block line-clamp-2 text-xs text-muted-foreground">{alert.message || "Acompanhe este item pela central de alertas."}</span></span></div></div>)}{!alerts.length && <p className="rounded-xl bg-secondary/60 px-3.5 py-4 text-sm text-muted-foreground">Não há alertas financeiros recentes.</p>}</div></section>
                     <section className="border-t border-border px-5 py-4"><p className="text-xs font-extrabold uppercase tracking-[.13em] text-muted-foreground">Aportes deste mês</p><div className="mt-3 space-y-2">{monthlyContributions.map((contribution) => <div key={contribution.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3.5 py-3"><span className="min-w-0"><span className="flex items-center gap-2 truncate text-sm font-bold"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: contribution.goalColor }} />{contribution.goalName}</span><span className="mt-0.5 block text-xs text-muted-foreground">{contribution.note || contributionDate(contribution.createdAt)}</span></span><span className="shrink-0 text-sm font-extrabold">{money(contribution.amount)}</span></div>)}{!monthlyContributions.length && <p className="rounded-xl bg-secondary/60 px-3.5 py-4 text-sm text-muted-foreground">Nenhum aporte foi registrado neste mês.</p>}</div></section>
                     <div className="flex gap-2 border-t border-border p-3"><Button variant="outline" size="sm" className="flex-1" onClick={() => { setAlertsOpen(false); navigate(contextualHref("/notificacoes")); }}>Ver alertas</Button><Button size="sm" className="flex-1" onClick={() => { setAlertsOpen(false); navigate(contextualHref("/metas")); }}>Abrir metas</Button></div>
                   </div> : <div className="px-5 py-6 text-sm text-muted-foreground">Abra a visão de um cliente para consultar os alertas e os aportes das suas metas.</div>}
                 </div>}
               </div>
-              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="flex h-auto min-w-11 items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left hover:bg-secondary sm:px-2"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#363636] text-sm font-extrabold text-white">{(user?.name ?? "A").trim().slice(0, 1).toUpperCase()}</span><span className="hidden min-w-0 sm:block"><span className="block max-w-36 truncate text-sm font-extrabold">{user?.name ?? "Conta Aion"}</span><span className="block text-xs text-muted-foreground">{isConsultor ? "Consultor Aion" : isPersonal ? "Pessoal / Família" : "Microempresário"}</span></span><ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-56"><DropdownMenuLabel>Minha conta</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => setProfileOpen(true)}><PencilLine className="mr-2 h-4 w-4" />Editar informações</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem className="text-primary focus:bg-[#f9e8eb] focus:text-primary" onSelect={() => { logout(); navigate("/"); }}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="flex h-auto min-w-11 items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left hover:bg-secondary sm:px-2"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-secondary text-sm font-extrabold text-secondary-foreground">{(user?.name ?? "A").trim().slice(0, 1).toUpperCase()}</span><span className="hidden min-w-0 sm:block"><span className="block max-w-36 truncate text-sm font-extrabold">{user?.name ?? "Conta Aion"}</span><span className="block text-xs text-muted-foreground">{isConsultor ? "Consultor Aion" : isPersonal ? "Pessoal / Família" : "Microempresário"}</span></span><ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-60"><DropdownMenuLabel>Minha conta</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onClick={() => toggleTheme?.()}>{theme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}{theme === "dark" ? "Usar modo claro" : "Usar modo escuro"}</DropdownMenuItem><DropdownMenuItem onSelect={() => setProfileOpen(true)}><PencilLine className="mr-2 h-4 w-4" />Editar informações</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem className="text-primary focus:bg-accent focus:text-primary" onSelect={() => { logout(); navigate("/"); }}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
             </div>
           </header>
           <main className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</main>

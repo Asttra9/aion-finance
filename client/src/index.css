@@ -61,7 +61,7 @@
   --secondary: #ece8e4;
   --secondary-foreground: #3f3a3a;
   --muted: #f1efec;
-  --muted-foreground: #716a67;
+  --muted-foreground: #625d5a;
   --accent: #f9e8eb;
   --accent-foreground: #8f1727;
   --destructive: #bc2836;
@@ -91,24 +91,38 @@
   --card-foreground: #f8f6f3;
   --popover: #302e2e;
   --popover-foreground: #f8f6f3;
+  --primary: #ea5b6c;
+  --primary-foreground: #2d1015;
   --secondary: #3a3737;
   --secondary-foreground: #f5f1ec;
   --muted: #3a3737;
-  --muted-foreground: #bcb4ae;
+  --muted-foreground: #cfc6c0;
   --accent: #4b3437;
   --accent-foreground: #ffd9dd;
+  --destructive: #f46e7d;
+  --destructive-foreground: #301014;
   --border: #494444;
   --input: #494444;
+  --ring: #ea5b6c;
+  --chart-1: #ea5b6c;
+  --chart-2: #d9d3cf;
+  --chart-3: #f19aa5;
+  --chart-4: #c9b5a7;
+  --chart-5: #aaa29d;
   --sidebar: #202020;
   --sidebar-foreground: #f8f6f3;
+  --sidebar-primary: #ea5b6c;
+  --sidebar-primary-foreground: #2d1015;
   --sidebar-accent: #353232;
   --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: #4b4646;
+  --sidebar-ring: #ea5b6c;
 }
 
 @layer base {
   * { @apply border-border outline-ring/60; }
   html { font-family: "Manrope", ui-sans-serif, system-ui, sans-serif; }
-  body { @apply bg-background text-foreground antialiased; }
+  body { @apply bg-background text-foreground antialiased; text-rendering: optimizeLegibility; }
   button:not(:disabled), [role="button"]:not([aria-disabled="true"]), a[href], select:not(:disabled), input:not(:disabled) { @apply cursor-pointer; }
   button:active:not(:disabled), [role="button"]:active:not([aria-disabled="true"]) { transform: scale(.98); }
 }
@@ -122,6 +136,13 @@
   .aion-metric::before { content: ""; @apply absolute inset-x-0 top-0 h-1 bg-primary; }
   .aion-empty { @apply rounded-[1.35rem] border border-dashed border-border bg-card px-6 py-12 text-center; }
   .aion-nav-label { @apply px-3 pb-2 pt-5 text-[0.64rem] font-extrabold uppercase tracking-[0.15em] text-[#c5bdb8]; }
+  .dark .aion-panel, .dark .aion-metric { box-shadow: 0 14px 30px rgba(0, 0, 0, .20); }
+  .dark .recharts-cartesian-grid line { stroke: #494444; }
+  .dark .recharts-text { fill: #cfc6c0; }
+  .dark .aion-page .bg-\[\#fdfcfa\], .dark .aion-page .bg-white { background-color: var(--card) !important; }
+  .dark .aion-page .border-\[\#e5dfda\], .dark .aion-page .border-\[\#d8cec8\] { border-color: var(--border) !important; }
+  .dark .aion-page .bg-\[\#f9e8eb\], .dark .aion-page .bg-\[\#f0e7e3\], .dark .aion-page .bg-\[\#ece7e3\] { background-color: var(--accent) !important; }
+  .dark .aion-page .text-\[\#b21d31\], .dark .aion-page .text-\[\#8f1727\], .dark .aion-page .text-\[\#a8192c\] { color: var(--primary) !important; }
 }
 
 @media (prefers-reduced-motion: no-preference) {

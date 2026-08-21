@@ -171,4 +171,15 @@
 - [x] Transformar a identificação do perfil em menu clicável com opções de editar informações e sair.
 - [x] Garantir que o menu de perfil funcione de forma apropriada para consultor, empreendedor e cliente pessoal.
 - [x] Criar testes, typecheck, build e validação visual das novas interações.
-- [ ] Salvar checkpoint da experiência de seleção e navegação.
+- [x] Salvar checkpoint da experiência de seleção e navegação (`6803159e`).
+
+## Experiência operacional e sistema visual
+
+- [x] Criar seção inicial com alertas recentes e atividades relacionadas ao contexto selecionado.
+- [x] Implementar conciliação em lote das movimentações pendentes com confirmação explícita e retorno de resultado.
+- [x] Adicionar alternância de modo claro e escuro, com preferência persistente e contraste acessível.
+- [x] Refinar tokens de cor, superfícies, tipografia e contraste para uma linguagem financeira editorial e mais distinta.
+- [x] Melhorar a hierarquia da tela de conciliação para tornar a ação em lote clara e segura.
+- [x] Paginar a listagem de transações em grupos de 20 registros, com controles de navegação acessíveis.
+- [x] Criar testes, typecheck, build e validação visual dos fluxos e temas atualizados.
+- [x] Salvar checkpoint da experiência operacional e visual.

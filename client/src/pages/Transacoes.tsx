@@ -7,8 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Pagination, PaginationContent, PaginationItem } from "@/components/ui/pagination";
 import { Spinner } from "@/components/ui/spinner";
-import { Plus, Filter } from "lucide-react";
+import { Plus, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { useLocation } from "wouter";
 import AionDashboardLayout from "@/components/AionDashboardLayout";
 
@@ -24,6 +25,7 @@ export default function Transacoes() {
   const [categoryType, setCategoryType] = useState<"receita" | "despesa">("despesa");
   const [categoryIsFixed, setCategoryIsFixed] = useState(false);
   const [filterType, setFilterType] = useState<"todas" | "receita" | "despesa">("todas");
+  const [currentPage, setCurrentPage] = useState(1);
   const [formData, setFormData] = useState({
     description: "",
     amount: "",
@@ -93,6 +95,12 @@ export default function Transacoes() {
   const totalExpense = filteredTransactions
     .filter((t) => t.type === "despesa")
     .reduce((sum, t) => sum + parseFloat(t.amount as any), 0);
+  const pageSize = 20;
+  const totalPages = Math.max(1, Math.ceil(filteredTransactions.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * pageSize;
+  const paginatedTransactions = filteredTransactions.slice(pageStart, pageStart + pageSize);
+  const pageNumbers = Array.from({ length: totalPages }, (_, index) => index + 1).filter((page) => totalPages <= 5 || page === 1 || page === totalPages || Math.abs(page - safePage) <= 1);
 
   return (
     <AionDashboardLayout>
@@ -304,7 +312,7 @@ export default function Transacoes() {
               </div>
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-muted-foreground" />
-                <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
+                <Select value={filterType} onValueChange={(value: "todas" | "receita" | "despesa") => { setFilterType(value); setCurrentPage(1); }}>
                   <SelectTrigger className="w-40">
                     <SelectValue />
                   </SelectTrigger>
@@ -336,7 +344,7 @@ export default function Transacoes() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredTransactions.map((transaction) => (
+                    {paginatedTransactions.map((transaction) => (
                       <TableRow key={transaction.id}>
                         <TableCell>
                           {new Date(transaction.date).toLocaleDateString("pt-BR")}
@@ -388,6 +396,7 @@ export default function Transacoes() {
                     ))}
                   </TableBody>
                 </Table>
+                {totalPages > 1 && <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between"><p className="text-sm text-muted-foreground">Exibindo {pageStart + 1}–{Math.min(pageStart + pageSize, filteredTransactions.length)} de {filteredTransactions.length} lançamentos</p><Pagination aria-label="Paginação de transações" className="mx-0 w-auto sm:ml-auto"><PaginationContent><PaginationItem><Button variant="ghost" size="sm" onClick={() => setCurrentPage((page) => Math.max(1, page - 1))} disabled={safePage === 1} aria-label="Página anterior"><ChevronLeft className="mr-1 h-4 w-4" />Anterior</Button></PaginationItem>{pageNumbers.map((page, index) => <PaginationItem key={page}>{index > 0 && pageNumbers[index - 1] !== page - 1 ? <span className="px-1 text-muted-foreground" aria-hidden="true">…</span> : null}<Button variant={page === safePage ? "outline" : "ghost"} size="icon" onClick={() => setCurrentPage(page)} aria-label={`Ir para a página ${page}`} aria-current={page === safePage ? "page" : undefined}>{page}</Button></PaginationItem>)}<PaginationItem><Button variant="ghost" size="sm" onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))} disabled={safePage === totalPages} aria-label="Próxima página">Próxima<ChevronRight className="ml-1 h-4 w-4" /></Button></PaginationItem></PaginationContent></Pagination></div>}
               </div>
             ) : (
               <div className="text-center py-8">

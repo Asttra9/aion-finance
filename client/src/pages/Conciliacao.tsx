@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,6 +23,7 @@ export default function Conciliacao() {
   const [categoryId, setCategoryId] = useState<string>("none");
   const [selectedFileName, setSelectedFileName] = useState("");
   const [importResult, setImportResult] = useState<{ imported: number; skipped: number; errors: string[] } | null>(null);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
 
   const transactionsQuery = trpc.transactions.list.useQuery({ clientId: clientId || 0 }, { enabled: !!clientId });
   const categoriesQuery = trpc.transactions.categories.useQuery(undefined, { enabled: !!clientId });
@@ -50,6 +52,14 @@ export default function Conciliacao() {
     onSuccess: () => {
       void utils.transactions.list.invalidate({ clientId });
       toast.success("Transação conciliada.");
+    },
+    onError: (error) => toast.error(error.message),
+  });
+  const reconcileAllMutation = trpc.transactions.reconcileAllPending.useMutation({
+    onSuccess: (result) => {
+      void utils.transactions.list.invalidate({ clientId });
+      setBulkConfirmOpen(false);
+      toast.success(result.reconciled ? `${result.reconciled} movimentação(ões) conciliada(s).` : "Não há movimentações pendentes para conciliar.");
     },
     onError: (error) => toast.error(error.message),
   });
@@ -101,7 +111,8 @@ export default function Conciliacao() {
 
         <div className="grid gap-4 md:grid-cols-3"><Card><CardHeader className="pb-2"><CardDescription>Total de lançamentos</CardDescription><CardTitle className="text-2xl">{transactions.length}</CardTitle></CardHeader></Card><Card><CardHeader className="pb-2"><CardDescription>Pendentes</CardDescription><CardTitle className="text-2xl text-amber-600">{pending.length}</CardTitle></CardHeader></Card><Card><CardHeader className="pb-2"><CardDescription>Conciliados</CardDescription><CardTitle className="text-2xl text-emerald-600">{reconciled.length}</CardTitle></CardHeader></Card></div>
 
-        <Card><CardHeader><CardTitle>Lançamentos pendentes</CardTitle><CardDescription>Revise categoria e contexto antes de confirmar a conciliação.</CardDescription></CardHeader><CardContent>{transactionsQuery.isLoading ? <div className="flex justify-center py-8"><Spinner className="h-6 w-6" /></div> : pending.length === 0 ? <div className="py-10 text-center text-sm text-muted-foreground">Nenhum lançamento pendente de conciliação.</div> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Descrição</TableHead><TableHead>Tipo</TableHead><TableHead>Valor</TableHead><TableHead>Contexto</TableHead><TableHead className="text-right">Ação</TableHead></TableRow></TableHeader><TableBody>{pending.map((transaction) => <TableRow key={transaction.id}><TableCell>{new Date(transaction.date).toLocaleDateString("pt-BR")}</TableCell><TableCell className="max-w-[280px] truncate">{transaction.description}</TableCell><TableCell>{transaction.type === "receita" ? "Receita" : "Despesa"}</TableCell><TableCell className={transaction.type === "receita" ? "font-semibold text-emerald-700" : "font-semibold text-rose-700"}>R$ {Number(transaction.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell><TableCell>{transaction.financeType === "pessoal" ? "Pessoal" : "Empresarial"}</TableCell><TableCell className="text-right"><Button size="sm" onClick={() => reconcileMutation.mutate({ transactionId: transaction.id, financeType: transaction.financeType })} disabled={reconcileMutation.isPending}>Conciliar</Button></TableCell></TableRow>)}</TableBody></Table></div>}</CardContent></Card>
+        <Card className="aion-panel"><CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><CardTitle>Lançamentos pendentes</CardTitle><CardDescription className="mt-1">Revise individualmente quando necessário ou concilie toda a fila do contexto atual.</CardDescription></div><Button onClick={() => setBulkConfirmOpen(true)} disabled={!pending.length || reconcileAllMutation.isPending} className="min-h-11">{reconcileAllMutation.isPending ? <><Spinner className="mr-2 h-4 w-4" />Conciliando</> : <>Conciliar todas ({pending.length})</>}</Button></CardHeader><CardContent>{transactionsQuery.isLoading ? <div className="flex justify-center py-8"><Spinner className="h-6 w-6" /></div> : pending.length === 0 ? <div className="py-10 text-center text-sm text-muted-foreground">Nenhum lançamento pendente de conciliação.</div> : <div className="overflow-x-auto"><Table><TableHeader><TableRow><TableHead>Data</TableHead><TableHead>Descrição</TableHead><TableHead>Tipo</TableHead><TableHead>Valor</TableHead><TableHead>Contexto</TableHead><TableHead className="text-right">Ação</TableHead></TableRow></TableHeader><TableBody>{pending.map((transaction) => <TableRow key={transaction.id}><TableCell>{new Date(transaction.date).toLocaleDateString("pt-BR")}</TableCell><TableCell className="max-w-[280px] truncate">{transaction.description}</TableCell><TableCell>{transaction.type === "receita" ? "Receita" : "Despesa"}</TableCell><TableCell className={transaction.type === "receita" ? "font-semibold text-emerald-700" : "font-semibold text-rose-700"}>R$ {Number(transaction.amount).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</TableCell><TableCell>{transaction.financeType === "pessoal" ? "Pessoal" : "Empresarial"}</TableCell><TableCell className="text-right"><Button size="sm" onClick={() => reconcileMutation.mutate({ transactionId: transaction.id, financeType: transaction.financeType })} disabled={reconcileMutation.isPending}>Conciliar</Button></TableCell></TableRow>)}</TableBody></Table></div>}</CardContent></Card>
+        <Dialog open={bulkConfirmOpen} onOpenChange={setBulkConfirmOpen}><DialogContent><DialogHeader><DialogTitle>Conciliar todas as movimentações?</DialogTitle><DialogDescription>Esta ação marcará {pending.length} movimentação(ões) pendente(s) como conciliada(s) para este cliente e contexto atual. Os lançamentos não serão excluídos.</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" onClick={() => setBulkConfirmOpen(false)} disabled={reconcileAllMutation.isPending}>Revisar individualmente</Button><Button onClick={() => reconcileAllMutation.mutate({ clientId })} disabled={reconcileAllMutation.isPending}>{reconcileAllMutation.isPending ? "Conciliando..." : `Confirmar ${pending.length} movimentação(ões)`}</Button></DialogFooter></DialogContent></Dialog>
       </div>
     </AionDashboardLayout>
   );
