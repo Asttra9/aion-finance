@@ -1,170 +1,124 @@
 import { useState } from "react";
+import { ArrowUpRight, Edit2, Plus } from "lucide-react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import AionDashboardLayout from "@/components/AionDashboardLayout";
+import { ClientEditDialog } from "@/components/ClientEditDialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Spinner } from "@/components/ui/spinner";
-import { Plus, Edit2 } from "lucide-react";
-import { useLocation } from "wouter";
-import AionDashboardLayout from "@/components/AionDashboardLayout";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+
+const initialFormData = {
+  name: "",
+  email: "",
+  phone: "",
+  address: "",
+  cpfCnpj: "",
+  businessType: "pessoal" as const,
+  businessName: "",
+  serviceModel: undefined as "recorrente" | "pontual" | undefined,
+  monthlyRevenue: "",
+};
+
+const businessTypeLabel = (businessType: string) => {
+  if (businessType === "pessoal") return "Pessoal";
+  if (businessType === "profissional_liberal") return "Profissional liberal";
+  if (businessType === "pj") return "Pessoa jurídica";
+  return businessType.toUpperCase();
+};
 
 export default function Clientes() {
   const [, navigate] = useLocation();
-  const [open, setOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    phone: "",
-    cpfCnpj: "",
-    businessType: "pessoal" as const,
-    businessName: "",
-    serviceModel: undefined as "recorrente" | "pontual" | undefined,
-    monthlyRevenue: "",
-  });
-
+  const [createOpen, setCreateOpen] = useState(false);
+  const [editingClientId, setEditingClientId] = useState<number | null>(null);
+  const [formData, setFormData] = useState(initialFormData);
   const { data: clients, isLoading, refetch } = trpc.clients.list.useQuery();
   const createMutation = trpc.clients.create.useMutation({
     onSuccess: () => {
       refetch();
-      setOpen(false);
-      setFormData({
-        name: "",
-        email: "",
-        phone: "",
-        cpfCnpj: "",
-        businessType: "pessoal",
-        businessName: "",
-        serviceModel: undefined,
-        monthlyRevenue: "",
-      });
+      setCreateOpen(false);
+      setFormData(initialFormData);
     },
   });
-  const updateClientMutation = trpc.clients.update.useMutation({ onSuccess: () => refetch() });
+  const editingClient = clients?.find((client) => client.id === editingClientId);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    createMutation.mutate(formData);
+  const handleCreate = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    createMutation.mutate({
+      name: formData.name.trim(),
+      businessType: formData.businessType,
+      ...(formData.email.trim() ? { email: formData.email.trim() } : {}),
+      ...(formData.phone.trim() ? { phone: formData.phone.trim() } : {}),
+      ...(formData.address.trim() ? { address: formData.address.trim() } : {}),
+      ...(formData.cpfCnpj.trim() ? { cpfCnpj: formData.cpfCnpj.trim() } : {}),
+      ...(formData.businessName.trim() ? { businessName: formData.businessName.trim() } : {}),
+      ...(formData.serviceModel ? { serviceModel: formData.serviceModel } : {}),
+      ...(formData.monthlyRevenue.trim() ? { monthlyRevenue: formData.monthlyRevenue } : {}),
+    });
   };
 
   return (
     <AionDashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
             <h2 className="text-3xl font-bold tracking-tight">Clientes</h2>
-            <p className="text-muted-foreground mt-1">
-              Acompanhe clientes pessoais, MEIs e microempresas em jornadas financeiras próprias.
-            </p>
+            <p className="mt-1 text-muted-foreground">Acompanhe clientes pessoais, MEIs e microempresas em jornadas financeiras próprias.</p>
           </div>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Novo Cliente
-              </Button>
+              <Button><Plus className="mr-2 h-4 w-4" />Novo cliente</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Adicionar Novo Cliente</DialogTitle>
-                <DialogDescription>
-                  Cadastre um novo cliente para começar a gerenciar suas finanças
-                </DialogDescription>
+                <DialogTitle>Adicionar novo cliente</DialogTitle>
+                <DialogDescription>Cadastre o cliente para começar o acompanhamento financeiro.</DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome *</Label>
-                  <Input
-                    id="name"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, name: e.target.value })
-                    }
-                    required
-                  />
+                  <Input id="name" value={formData.name} onChange={(event) => setFormData({ ...formData, name: event.target.value })} required />
                 </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) =>
-                      setFormData({ ...formData, email: e.target.value })
-                    }
-                  />
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input id="email" type="email" value={formData.email} onChange={(event) => setFormData({ ...formData, email: event.target.value })} />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="phone">Telefone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
-                    }
-                  />
+                  <Input id="phone" value={formData.phone} onChange={(event) => setFormData({ ...formData, phone: event.target.value })} />
                 </div>
-
+                <div className="space-y-2">
+                  <Label htmlFor="address">Endereço físico</Label>
+                  <Input id="address" value={formData.address} onChange={(event) => setFormData({ ...formData, address: event.target.value })} maxLength={800} />
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="cpfCnpj">CPF/CNPJ</Label>
-                  <Input
-                    id="cpfCnpj"
-                    value={formData.cpfCnpj}
-                    onChange={(e) =>
-                      setFormData({ ...formData, cpfCnpj: e.target.value })
-                    }
-                  />
+                  <Input id="cpfCnpj" value={formData.cpfCnpj} onChange={(event) => setFormData({ ...formData, cpfCnpj: event.target.value })} maxLength={20} />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="businessType">Jornada financeira *</Label>
-                  <Select
-                    value={formData.businessType}
-                    onValueChange={(value: any) =>
-                      setFormData({ ...formData, businessType: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
+                  <Select value={formData.businessType} onValueChange={(value) => setFormData({ ...formData, businessType: value as typeof formData.businessType })}>
+                    <SelectTrigger id="businessType"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="pessoal">Cliente Pessoal</SelectItem>
+                      <SelectItem value="pessoal">Cliente pessoal</SelectItem>
                       <SelectItem value="mei">MEI</SelectItem>
-                      <SelectItem value="profissional_liberal">
-                        Profissional Liberal
-                      </SelectItem>
-                      <SelectItem value="pj">PJ</SelectItem>
+                      <SelectItem value="profissional_liberal">Profissional liberal</SelectItem>
+                      <SelectItem value="pj">Pessoa jurídica</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="businessName">Nome da empresa (quando aplicável)</Label>
-                  <Input
-                    id="businessName"
-                    value={formData.businessName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, businessName: e.target.value })
-                    }
-                  />
+                  <Label htmlFor="businessName">Nome da empresa</Label>
+                  <Input id="businessName" value={formData.businessName} onChange={(event) => setFormData({ ...formData, businessName: event.target.value })} />
                 </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="serviceModel">Modalidade de atendimento</Label>
-                  <Select
-                    value={formData.serviceModel ?? "nao-informado"}
-                    onValueChange={(value) =>
-                      setFormData({
-                        ...formData,
-                        serviceModel: value === "nao-informado" ? undefined : value as "recorrente" | "pontual",
-                      })
-                    }
-                  >
+                  <Select value={formData.serviceModel ?? "nao-informado"} onValueChange={(value) => setFormData({ ...formData, serviceModel: value === "nao-informado" ? undefined : value as "recorrente" | "pontual" })}>
                     <SelectTrigger id="serviceModel"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="nao-informado">Não informado</SelectItem>
@@ -172,38 +126,14 @@ export default function Clientes() {
                       <SelectItem value="pontual">Pontual</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">A classificação só é usada quando for registrada no cadastro.</p>
                 </div>
-
                 <div className="space-y-2">
-                  <Label htmlFor="monthlyRevenue">Receita Mensal Estimada</Label>
-                  <Input
-                    id="monthlyRevenue"
-                    type="number"
-                    step="0.01"
-                    value={formData.monthlyRevenue}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        monthlyRevenue: e.target.value,
-                      })
-                    }
-                  />
+                  <Label htmlFor="monthlyRevenue">Receita mensal estimada</Label>
+                  <Input id="monthlyRevenue" type="number" min="0" step="0.01" value={formData.monthlyRevenue} onChange={(event) => setFormData({ ...formData, monthlyRevenue: event.target.value })} />
                 </div>
-
-                <Button
-                  type="submit"
-                  disabled={createMutation.isPending}
-                  className="w-full"
-                >
-                  {createMutation.isPending ? (
-                    <>
-                      <Spinner className="w-4 h-4 mr-2" />
-                      Criando...
-                    </>
-                  ) : (
-                    "Criar Cliente"
-                  )}
+                {createMutation.error && <p role="alert" className="text-sm text-destructive">{createMutation.error.message || "Não foi possível criar o cliente."}</p>}
+                <Button type="submit" disabled={createMutation.isPending} className="w-full">
+                  {createMutation.isPending ? <><Spinner className="mr-2 h-4 w-4" />Criando...</> : "Criar cliente"}
                 </Button>
               </form>
             </DialogContent>
@@ -212,96 +142,30 @@ export default function Clientes() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Seus Clientes</CardTitle>
-            <CardDescription>
-              Lista de todos os clientes cadastrados
-            </CardDescription>
+            <CardTitle>Seus clientes</CardTitle>
+            <CardDescription>Consulte o painel financeiro ou atualize os dados de cadastro de cada cliente.</CardDescription>
           </CardHeader>
           <CardContent>
             {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Spinner className="w-6 h-6" />
-              </div>
+              <div className="flex items-center justify-center py-8"><Spinner className="h-6 w-6" /></div>
             ) : clients && clients.length > 0 ? (
               <div className="overflow-x-auto">
                 <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Nome</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Atendimento</TableHead>
-                      <TableHead>Receita Mensal</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
+                  <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>E-mail</TableHead><TableHead>Tipo</TableHead><TableHead>Atendimento</TableHead><TableHead>Receita mensal</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
                   <TableBody>
                     {clients.map((client) => (
                       <TableRow key={client.id}>
-                        <TableCell className="font-medium">
-                          {client.name}
-                        </TableCell>
-                        <TableCell>{client.email || "-"}</TableCell>
-                        <TableCell className="capitalize">
-                          {client.businessType === "pessoal"
-                            ? "Pessoal"
-                            : client.businessType === "profissional_liberal"
-                            ? "Profissional Liberal"
-                            : client.businessType.toUpperCase()}
-                        </TableCell>
+                        <TableCell className="font-medium">{client.name}</TableCell>
+                        <TableCell>{client.email || "—"}</TableCell>
+                        <TableCell>{businessTypeLabel(client.businessType)}</TableCell>
+                        <TableCell>{client.serviceModel ? client.serviceModel.charAt(0).toUpperCase() + client.serviceModel.slice(1) : "Não informado"}</TableCell>
+                        <TableCell>{client.monthlyRevenue ? Number(client.monthlyRevenue).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) : "—"}</TableCell>
+                        <TableCell><span className="text-sm font-medium">{client.status === "em_onboarding" ? "Em onboarding" : client.status.charAt(0).toUpperCase() + client.status.slice(1)}</span></TableCell>
                         <TableCell>
-                          <Select
-                            value={client.serviceModel ?? "nao-informado"}
-                            onValueChange={(value) =>
-                              updateClientMutation.mutate({
-                                clientId: client.id,
-                                serviceModel: value === "nao-informado" ? null : value as "recorrente" | "pontual",
-                              })
-                            }
-                            disabled={updateClientMutation.isPending}
-                          >
-                            <SelectTrigger aria-label={`Modalidade de atendimento de ${client.name}`} className="h-9 min-w-34"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="nao-informado">Não informado</SelectItem>
-                              <SelectItem value="recorrente">Recorrente</SelectItem>
-                              <SelectItem value="pontual">Pontual</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell>
-                          {client.monthlyRevenue
-                            ? `R$ ${parseFloat(client.monthlyRevenue as any).toLocaleString("pt-BR", {
-                                minimumFractionDigits: 2,
-                              })}`
-                            : "-"}
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={`px-2 py-1 rounded text-xs font-medium ${
-                              client.status === "ativo"
-                                ? "bg-green-100 text-green-800"
-                                : client.status === "inativo"
-                                ? "bg-gray-100 text-gray-800"
-                                : "bg-yellow-100 text-yellow-800"
-                            }`}
-                          >
-                            {client.status === "em_onboarding"
-                              ? "Em Onboarding"
-                              : client.status.charAt(0).toUpperCase() +
-                                client.status.slice(1)}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              navigate(`/clientes/${client.id}/dashboard`)
-                            }
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="sm" aria-label={`Abrir painel de ${client.name}`} title="Abrir painel" onClick={() => navigate(`/clientes/${client.id}/dashboard`)}><ArrowUpRight className="h-4 w-4" /></Button>
+                            <Button variant="ghost" size="sm" aria-label={`Editar cadastro de ${client.name}`} title="Editar cadastro" onClick={() => setEditingClientId(client.id)}><Edit2 className="h-4 w-4" /></Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -309,18 +173,12 @@ export default function Clientes() {
                 </Table>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-muted-foreground mb-4">
-                  Nenhum cliente cadastrado ainda
-                </p>
-                <Button onClick={() => setOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Criar Primeiro Cliente
-                </Button>
-              </div>
+              <div className="py-8 text-center"><p className="mb-4 text-muted-foreground">Nenhum cliente cadastrado ainda.</p><Button onClick={() => setCreateOpen(true)}><Plus className="mr-2 h-4 w-4" />Criar primeiro cliente</Button></div>
             )}
           </CardContent>
         </Card>
+
+        {editingClient && <ClientEditDialog client={editingClient} open={editingClientId !== null} onOpenChange={(nextOpen) => { if (!nextOpen) setEditingClientId(null); }} />}
       </div>
     </AionDashboardLayout>
   );

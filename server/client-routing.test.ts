@@ -9,6 +9,7 @@ const operationSource = readFileSync(resolve(projectRoot, "client/src/pages/Oper
 const personalSource = readFileSync(resolve(projectRoot, "client/src/pages/Pessoal.tsx"), "utf8");
 const meiSource = readFileSync(resolve(projectRoot, "client/src/pages/Mei.tsx"), "utf8");
 const clientSource = readFileSync(resolve(projectRoot, "client/src/pages/Clientes.tsx"), "utf8");
+const clientEditDialogSource = readFileSync(resolve(projectRoot, "client/src/components/ClientEditDialog.tsx"), "utf8");
 const reconciliationSource = readFileSync(resolve(projectRoot, "client/src/pages/Conciliacao.tsx"), "utf8");
 const reportsSource = readFileSync(resolve(projectRoot, "client/src/pages/Relatorios.tsx"), "utf8");
 const transactionsSource = readFileSync(resolve(projectRoot, "client/src/pages/Transacoes.tsx"), "utf8");
@@ -50,7 +51,7 @@ describe("roteamento contextual da Aion", () => {
     expect(personalSource).toContain('Assinaturas de serviços');
     expect(personalSource).toContain('Gastos da semana');
     expect(personalSource).toContain('trpc.subscriptions.create');
-    expect(clientSource).toContain('serviceModel: value === "nao-informado" ? null');
+    expect(clientSource).toContain('ClientEditDialog');
   });
 
   it("mantém a jornada pessoal focada em resumo, contas, movimentações e metas", () => {
@@ -123,5 +124,17 @@ describe("roteamento contextual da Aion", () => {
     expect(layoutSource).toContain('Editar informações');
     expect(layoutSource).toContain('trpc.auth.updateProfile.useMutation');
     expect(layoutSource).toContain('Sair');
+  });
+
+  it("mantém a edição cadastral restrita ao consultor e direciona clientes ao suporte", () => {
+    expect(clientSource).toContain('Editar cadastro');
+    expect(clientEditDialogSource).toContain('Endereço físico');
+    expect(clientEditDialogSource).toContain('Jornada financeira');
+    expect(clientEditDialogSource).toContain('Atualize os dados administrativos sem alterar a jornada financeira');
+    expect(layoutSource).toContain('isConsultor ? <DropdownMenuItem onSelect={() => setProfileOpen(true)}');
+    expect(layoutSource).toContain('Solicitar alteração cadastral');
+    expect(layoutSource).toContain('dados cadastrais são atualizados pelo suporte Aion');
+    expect(layoutSource).toContain('Meus dados cadastrais');
+    expect(layoutSource).toContain('Para qualquer alteração, solicite atendimento ao suporte Aion');
   });
 });

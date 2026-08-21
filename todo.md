@@ -220,3 +220,8 @@
 - [x] Salvar checkpoint dos indicadores, relatórios e recorrências por perfil.
 - [x] Importar o extrato OFX fornecido pelo usuário no perfil MEI temporário para validação com dados reais.
 - [x] Exibir o período mais recente com movimentação nos indicadores mensais quando o mês corrente não tiver dados.
+- [x] Permitir que o Consultor Aion edite os dados cadastrais de clientes já incluídos no sistema.
+- [x] Incluir endereço físico no cadastro e na edição autorizada de clientes, sem alterar sua jornada financeira.
+- [x] Restringir a edição cadastral direta ao Consultor Aion e orientar clientes a acionarem o suporte para alterações.
+- [x] Validar a persistência de endereço, CPF/CNPJ e demais dados cadastrais nos fluxos de criação e edição.
+- [x] Exibir os dados cadastrais do cliente em modo somente leitura, com orientação explícita para solicitar alterações ao suporte.

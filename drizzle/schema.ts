@@ -41,6 +41,7 @@ export const clients = mysqlTable("clients", {
   name: varchar("name", { length: 255 }).notNull(),
   email: varchar("email", { length: 320 }),
   phone: varchar("phone", { length: 20 }),
+  address: text("address"),
   cpfCnpj: varchar("cpfCnpj", { length: 20 }).unique(),
   businessType: mysqlEnum("businessType", ["pessoal", "mei", "profissional_liberal", "pj"]).notNull(),
   businessName: varchar("businessName", { length: 255 }),

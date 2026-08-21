@@ -101,15 +101,36 @@ export const appRouter = router({
     get: protectedProcedure.input(z.object({ clientId: z.number() })).query(({ input, ctx }) => requireClientAccess(input.clientId, ctx)),
     me: protectedProcedure.query(({ ctx }) => db.getClientByUserId(ctx.user.id)),
     create: consultorProcedure.input(z.object({
-      name: z.string().min(2), email: z.string().email().optional(), phone: z.string().optional(), cpfCnpj: z.string().optional(),
+      name: z.string().min(2), email: z.string().email().optional(), phone: z.string().optional(), address: z.string().trim().max(800).optional(), cpfCnpj: z.string().optional(),
       businessType: z.enum(["pessoal", "mei", "profissional_liberal", "pj"]), businessName: z.string().optional(), serviceModel: z.enum(["recorrente", "pontual"]).optional(), monthlyRevenue: money.optional(), notes: z.string().optional(),
     })).mutation(({ input, ctx }) => db.createClient({ ...input, consultorId: ctx.user.id, monthlyRevenue: input.monthlyRevenue ? toDecimal(input.monthlyRevenue) : undefined })),
     update: consultorProcedure.input(z.object({
-      clientId: z.number(), name: z.string().min(2).optional(), email: z.string().email().optional(), phone: z.string().optional(), businessName: z.string().optional(), serviceModel: z.enum(["recorrente", "pontual"]).nullable().optional(), monthlyRevenue: money.optional(), notes: z.string().optional(), status: z.enum(["ativo", "inativo", "em_onboarding"]).optional(),
+      clientId: z.number(),
+      name: z.string().trim().min(2).max(255).optional(),
+      email: z.string().trim().email().max(320).nullable().optional(),
+      phone: z.string().trim().max(20).nullable().optional(),
+      address: z.string().trim().max(800).nullable().optional(),
+      cpfCnpj: z.string().trim().max(20).nullable().optional(),
+      businessName: z.string().trim().max(255).nullable().optional(),
+      serviceModel: z.enum(["recorrente", "pontual"]).nullable().optional(),
+      monthlyRevenue: money.nullable().optional(),
+      notes: z.string().trim().max(2000).nullable().optional(),
+      status: z.enum(["ativo", "inativo", "em_onboarding"]).optional(),
     })).mutation(async ({ input, ctx }) => {
       const client = await db.getClientById(input.clientId);
       if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      return db.updateClient(input.clientId, { name: input.name, email: input.email, phone: input.phone, businessName: input.businessName, serviceModel: input.serviceModel, monthlyRevenue: input.monthlyRevenue ? toDecimal(input.monthlyRevenue) : undefined, notes: input.notes, status: input.status });
+      return db.updateClient(input.clientId, {
+        name: input.name,
+        email: input.email,
+        phone: input.phone,
+        address: input.address,
+        cpfCnpj: input.cpfCnpj,
+        businessName: input.businessName,
+        serviceModel: input.serviceModel,
+        monthlyRevenue: input.monthlyRevenue === null ? null : input.monthlyRevenue ? toDecimal(input.monthlyRevenue) : undefined,
+        notes: input.notes,
+        status: input.status,
+      });
     }),
   }),
 

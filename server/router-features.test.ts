@@ -318,10 +318,48 @@ describe("financial CRUD", () => {
     expect(dbMocks.deleteTransaction).toHaveBeenCalledWith(61);
   });
 
-  it("permite atualizar cliente somente pela trilha do consultor", async () => {
+  it("permite que o consultor atualize dados cadastrais completos do cliente", async () => {
     const caller = appRouter.createCaller(createConsultorContext());
-    await caller.clients.update({ clientId: 3, name: "Cliente atualizado" });
-    expect(dbMocks.updateClient).toHaveBeenCalledWith(3, expect.objectContaining({ name: "Cliente atualizado" }));
+    await caller.clients.update({
+      clientId: 3,
+      name: "Cliente atualizado",
+      cpfCnpj: "12345678901",
+      address: "Rua das Flores, 123 — Centro",
+      phone: "11999999999",
+      email: "cliente.atualizado@example.com",
+      businessName: "Negócio Atualizado",
+      serviceModel: "recorrente",
+      monthlyRevenue: "3200.50",
+      notes: "Cadastro revisado",
+      status: "ativo",
+    });
+    expect(dbMocks.updateClient).toHaveBeenCalledWith(3, expect.objectContaining({
+      name: "Cliente atualizado",
+      cpfCnpj: "12345678901",
+      address: "Rua das Flores, 123 — Centro",
+      monthlyRevenue: "3200.50",
+    }));
+  });
+
+  it("registra endereço e identificação quando o consultor cria um cliente", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    await caller.clients.create({
+      name: "Novo cliente MEI",
+      businessType: "mei",
+      cpfCnpj: "12345678000190",
+      address: "Avenida Aion, 100 — Centro",
+      phone: "1133334444",
+    });
+    expect(dbMocks.createClient).toHaveBeenCalledWith(expect.objectContaining({
+      consultorId: 11,
+      cpfCnpj: "12345678000190",
+      address: "Avenida Aion, 100 — Centro",
+    }));
+  });
+
+  it("impede que o cliente altere o próprio cadastro financeiro", async () => {
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.clients.update({ clientId: 3, name: "Alteração não autorizada" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 
