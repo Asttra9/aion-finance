@@ -18,6 +18,11 @@ const dbMocks = vi.hoisted(() => ({
   createAccountReceivable: vi.fn(),
   updateAccountReceivable: vi.fn(),
   deleteAccountReceivable: vi.fn(),
+  getFinancialGoalsByClient: vi.fn(),
+  getFinancialGoalById: vi.fn(),
+  createFinancialGoal: vi.fn(),
+  updateFinancialGoal: vi.fn(),
+  deleteFinancialGoal: vi.fn(),
   getTransactionById: vi.fn(),
   createTransaction: vi.fn(),
   updateTransaction: vi.fn(),
@@ -125,6 +130,35 @@ describe("meiWorkflow", () => {
     const steps = [{ step: "Emitir CCMEI", completed: true }];
     await caller.meiWorkflow.updateStatus({ clientId: 3, status: "concluido", steps, notes: "Concluído" });
     expect(dbMocks.updateMeiWorkflow).toHaveBeenCalledWith(3, expect.objectContaining({ status: "concluido", steps, notes: "Concluído" }));
+  });
+});
+
+describe("financialGoals", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.getClientById.mockResolvedValue(client);
+    dbMocks.getFinancialGoalsByClient.mockResolvedValue([]);
+    dbMocks.getFinancialGoalById.mockResolvedValue({ id: 71, clientId: 3, name: "Reserva de segurança", targetAmount: "2000", savedAmount: "350" });
+    dbMocks.createFinancialGoal.mockResolvedValue({ id: 71, clientId: 3 });
+    dbMocks.updateFinancialGoal.mockResolvedValue({ id: 71, clientId: 3, savedAmount: "500" });
+    dbMocks.deleteFinancialGoal.mockResolvedValue({ success: true });
+  });
+
+  it("permite criar e aportar em uma caixinha da própria jornada", async () => {
+    const caller = appRouter.createCaller(createClientContext());
+    await caller.financialGoals.create({ clientId: 3, name: "Reserva de segurança", targetAmount: "2000", color: "#B21D31" });
+    await caller.financialGoals.contribute({ goalId: 71, amount: "150" });
+
+    expect(dbMocks.createFinancialGoal).toHaveBeenCalledWith(expect.objectContaining({ clientId: 3, targetAmount: 2000, savedAmount: 0 }));
+    expect(dbMocks.updateFinancialGoal).toHaveBeenCalledWith(71, expect.objectContaining({ savedAmount: 500 }));
+  });
+
+  it("impede aporte em uma meta vinculada a outro cliente", async () => {
+    dbMocks.getFinancialGoalById.mockResolvedValue({ id: 71, clientId: 99, name: "Meta privada", targetAmount: "2000", savedAmount: "350" });
+    dbMocks.getClientById.mockResolvedValue({ id: 99, consultorId: 22, userId: 99, name: "Outro cliente" });
+
+    const caller = appRouter.createCaller(createClientContext(7));
+    await expect(caller.financialGoals.contribute({ goalId: 71, amount: "150" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 });
 

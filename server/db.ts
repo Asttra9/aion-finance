@@ -12,6 +12,7 @@ import {
   fileUploads,
   notifications,
   transactionCategories,
+  financialGoals,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -266,6 +267,39 @@ export async function updateAccountReceivable(
     .update(accountsReceivable)
     .set(data)
     .where(eq(accountsReceivable.id, arId));
+}
+
+// ===== FINANCIAL GOALS QUERIES =====
+
+export async function getFinancialGoalsByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(financialGoals).where(eq(financialGoals.clientId, clientId)).orderBy(desc(financialGoals.createdAt));
+}
+
+export async function getFinancialGoalById(goalId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(financialGoals).where(eq(financialGoals.id, goalId)).limit(1);
+  return result[0];
+}
+
+export async function createFinancialGoal(data: typeof financialGoals.$inferInsert) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.insert(financialGoals).values(data);
+}
+
+export async function updateFinancialGoal(goalId: number, data: Partial<typeof financialGoals.$inferInsert>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.update(financialGoals).set(data).where(eq(financialGoals.id, goalId));
+}
+
+export async function deleteFinancialGoal(goalId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.delete(financialGoals).where(eq(financialGoals.id, goalId));
 }
 
 // ===== MEI WORKFLOW QUERIES =====

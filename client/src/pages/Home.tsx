@@ -1,6 +1,7 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { startLogin } from "@/const";
+import { journeyPath } from "@/lib/journey";
 import { ArrowRight, ChartNoAxesCombined, Landmark, WalletCards } from "lucide-react";
 import { useEffect } from "react";
 import { useLocation } from "wouter";
@@ -16,7 +17,13 @@ const journeys = [
 export default function Home() {
   const { isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  useEffect(() => { if (isAuthenticated) navigate("/dashboard"); }, [isAuthenticated, navigate]);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const selectedJourney = window.localStorage.getItem("aion-selected-journey");
+    const destination = journeyPath(selectedJourney === "pessoal" ? "pessoal" : "empresarial");
+    window.localStorage.removeItem("aion-selected-journey");
+    navigate(destination);
+  }, [isAuthenticated, navigate]);
   if (isAuthenticated) return null;
 
   return <div className="min-h-screen overflow-x-hidden bg-[#2d2d2d] text-white">

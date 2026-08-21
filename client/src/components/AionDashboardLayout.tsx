@@ -132,6 +132,29 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
               <p className="aion-eyebrow">Aion Consultoria</p>
               <h1 className="truncate text-lg font-extrabold tracking-[-0.03em] sm:text-xl">{activeLabel}</h1>
             </div>
+            <div className="ml-auto flex items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                aria-label="Abrir alertas"
+                title="Alertas"
+                className="relative h-11 w-11 rounded-full border-[#d9cfca] bg-white text-[#2d2d2d] shadow-sm transition hover:border-primary hover:bg-accent hover:text-primary"
+                onClick={() => navigate(contextualHref("/notificacoes"))}
+              >
+                <BellRing className="h-[1.05rem] w-[1.05rem]" />
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-white" aria-hidden="true" />
+              </Button>
+              <div className="hidden min-w-0 items-center gap-2.5 sm:flex">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#363636] text-sm font-extrabold text-white">
+                  {(user?.name ?? "A").trim().slice(0, 1).toUpperCase()}
+                </span>
+                <span className="min-w-0">
+                  <span className="block max-w-36 truncate text-sm font-extrabold">{user?.name ?? "Conta Aion"}</span>
+                  <span className="block text-xs text-muted-foreground">{isConsultor ? "Consultor Aion" : isPersonal ? "Pessoal / Família" : "Microempresário"}</span>
+                </span>
+              </div>
+            </div>
           </header>
           <main className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</main>
         </div>

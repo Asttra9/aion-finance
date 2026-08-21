@@ -100,3 +100,16 @@
 - [x] Remover MEI Workflow da navegação principal de perfis que não estejam em abertura ou regularização.
 - [x] Atualizar testes, typecheck, build e validação visual do redesign.
 - [x] Criar checkpoint do redesign após validação (`fbdd7d23`).
+
+## Evolução de acesso, metas e indicadores
+
+- [x] Criar tela de acesso Aion com jornada empresarial como padrão e alternância para Pessoal/Família.
+- [x] Preservar autenticação OAuth e encaminhar a jornada selecionada após o acesso.
+- [x] Criar modelo de dados e procedures para metas financeiras vinculadas ao cliente.
+- [x] Criar interface de metas em caixinhas para os perfis pessoal e empresarial.
+- [x] Criar resumo pós-login por categorias financeiras, com cartões clicáveis e detalhamento.
+- [x] Criar aba de indicadores para Microempresário, destacando o maior gasto e uma orientação prática.
+- [x] Transformar alertas em botão circular de sino ao lado do usuário no cabeçalho.
+- [x] Alinhar o cabeçalho e a identificação da conta ao padrão visual enviado.
+- [x] Criar testes, typecheck, build e validação visual das novas jornadas.
+- [ ] Salvar checkpoint da evolução de acesso, metas e indicadores.

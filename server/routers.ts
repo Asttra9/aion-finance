@@ -74,6 +74,54 @@ export const appRouter = router({
     }),
   }),
 
+  financialGoals: router({
+    list: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => {
+      await requireClientAccess(input.clientId, ctx);
+      return db.getFinancialGoalsByClient(input.clientId);
+    }),
+    create: protectedProcedure.input(z.object({
+      clientId: z.number(),
+      name: z.string().min(2).max(140),
+      targetAmount: money,
+      savedAmount: money.optional(),
+      dueDate: z.date().optional(),
+      color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
+      icon: z.string().max(32).optional(),
+    })).mutation(async ({ input, ctx }) => {
+      await requireClientAccess(input.clientId, ctx);
+      return db.createFinancialGoal({
+        clientId: input.clientId,
+        name: input.name,
+        targetAmount: Number(input.targetAmount) as any,
+        savedAmount: Number(input.savedAmount ?? "0") as any,
+        dueDate: input.dueDate,
+        color: input.color,
+        icon: input.icon,
+      });
+    }),
+    contribute: protectedProcedure.input(z.object({ goalId: z.number(), amount: money })).mutation(async ({ input, ctx }) => {
+      const goal = await db.getFinancialGoalById(input.goalId);
+      if (!goal) throw new TRPCError({ code: "NOT_FOUND", message: "Meta não encontrada." });
+      await requireClientAccess(goal.clientId, ctx);
+      const nextAmount = Number(goal.savedAmount) + Number(input.amount);
+      return db.updateFinancialGoal(goal.id, { savedAmount: nextAmount as any });
+    }),
+    update: protectedProcedure.input(z.object({
+      goalId: z.number(), name: z.string().min(2).max(140).optional(), targetAmount: money.optional(), dueDate: z.date().nullable().optional(), color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(), icon: z.string().max(32).optional(),
+    })).mutation(async ({ input, ctx }) => {
+      const goal = await db.getFinancialGoalById(input.goalId);
+      if (!goal) throw new TRPCError({ code: "NOT_FOUND" });
+      await requireClientAccess(goal.clientId, ctx);
+      return db.updateFinancialGoal(goal.id, { name: input.name, targetAmount: input.targetAmount ? Number(input.targetAmount) as any : undefined, dueDate: input.dueDate, color: input.color, icon: input.icon });
+    }),
+    delete: protectedProcedure.input(z.object({ goalId: z.number() })).mutation(async ({ input, ctx }) => {
+      const goal = await db.getFinancialGoalById(input.goalId);
+      if (!goal) throw new TRPCError({ code: "NOT_FOUND" });
+      await requireClientAccess(goal.clientId, ctx);
+      return db.deleteFinancialGoal(goal.id);
+    }),
+  }),
+
   transactions: router({
     list: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => { await requireClientAccess(input.clientId, ctx); return db.getTransactionsByClient(input.clientId); }),
     categories: consultorProcedure.query(({ ctx }) => db.getTransactionCategories(ctx.user.id)),

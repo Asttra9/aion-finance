@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import Home from "@/pages/Home";
+import Acesso from "@/pages/Acesso";
 import Clientes from "@/pages/Clientes";
 import Dashboard from "@/pages/Dashboard";
 import Transacoes from "@/pages/Transacoes";
@@ -31,7 +32,9 @@ function Router() {
   if (!isAuthenticated) {
     return (
       <Switch>
-        <Route path="/" component={Home} />
+        <Route path="/" component={Acesso} />
+        <Route path="/acesso" component={Acesso} />
+        <Route path="/apresentacao" component={Home} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
       </Switch>
@@ -41,7 +44,10 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
-      <Route path="/clientes" component={Clientes} />
+      <Route path="/dashboard" component={Dashboard} />
+      <Route path="/pessoal" component={Dashboard} />
+      <Route path="/negocio" component={Dashboard} />
+      <Route path="/acesso" component={Acesso} />
       <Route path="/clientes/:id/dashboard" component={Dashboard} />
       <Route path="/clientes/:id/transacoes" component={Transacoes} />
       <Route path="/clientes/:id/contas-pagar" component={ContasPagar} />

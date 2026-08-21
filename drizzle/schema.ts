@@ -135,6 +135,25 @@ export type AccountReceivable = typeof accountsReceivable.$inferSelect;
 export type InsertAccountReceivable = typeof accountsReceivable.$inferInsert;
 
 /**
+ * Financial goals ("caixinhas") for personal and business financial planning.
+ */
+export const financialGoals = mysqlTable("financial_goals", {
+  id: int("id").autoincrement().primaryKey(),
+  clientId: int("clientId").notNull(),
+  name: varchar("name", { length: 140 }).notNull(),
+  targetAmount: decimal("targetAmount", { precision: 12, scale: 2 }).notNull(),
+  savedAmount: decimal("savedAmount", { precision: 12, scale: 2 }).default("0").notNull(),
+  dueDate: timestamp("dueDate"),
+  color: varchar("color", { length: 7 }).default("#b21d31").notNull(),
+  icon: varchar("icon", { length: 32 }).default("wallet").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type FinancialGoal = typeof financialGoals.$inferSelect;
+export type InsertFinancialGoal = typeof financialGoals.$inferInsert;
+
+/**
  * MEI Opening Workflow - tracks the process of opening a MEI
  */
 export const meiWorkflow = mysqlTable("mei_workflow", {
