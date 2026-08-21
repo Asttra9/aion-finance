@@ -65,14 +65,32 @@ export const appRouter = router({
     me: protectedProcedure.query(({ ctx }) => db.getClientByUserId(ctx.user.id)),
     create: consultorProcedure.input(z.object({
       name: z.string().min(2), email: z.string().email().optional(), phone: z.string().optional(), cpfCnpj: z.string().optional(),
-      businessType: z.enum(["pessoal", "mei", "profissional_liberal", "pj"]), businessName: z.string().optional(), monthlyRevenue: money.optional(), notes: z.string().optional(),
+      businessType: z.enum(["pessoal", "mei", "profissional_liberal", "pj"]), businessName: z.string().optional(), serviceModel: z.enum(["recorrente", "pontual"]).optional(), monthlyRevenue: money.optional(), notes: z.string().optional(),
     })).mutation(({ input, ctx }) => db.createClient({ ...input, consultorId: ctx.user.id, monthlyRevenue: input.monthlyRevenue ? toDecimal(input.monthlyRevenue) : undefined })),
     update: consultorProcedure.input(z.object({
-      clientId: z.number(), name: z.string().min(2).optional(), email: z.string().email().optional(), phone: z.string().optional(), businessName: z.string().optional(), monthlyRevenue: money.optional(), notes: z.string().optional(), status: z.enum(["ativo", "inativo", "em_onboarding"]).optional(),
+      clientId: z.number(), name: z.string().min(2).optional(), email: z.string().email().optional(), phone: z.string().optional(), businessName: z.string().optional(), serviceModel: z.enum(["recorrente", "pontual"]).nullable().optional(), monthlyRevenue: money.optional(), notes: z.string().optional(), status: z.enum(["ativo", "inativo", "em_onboarding"]).optional(),
     })).mutation(async ({ input, ctx }) => {
       const client = await db.getClientById(input.clientId);
       if (!client || client.consultorId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN" });
-      return db.updateClient(input.clientId, { name: input.name, email: input.email, phone: input.phone, businessName: input.businessName, monthlyRevenue: input.monthlyRevenue ? toDecimal(input.monthlyRevenue) : undefined, notes: input.notes, status: input.status });
+      return db.updateClient(input.clientId, { name: input.name, email: input.email, phone: input.phone, businessName: input.businessName, serviceModel: input.serviceModel, monthlyRevenue: input.monthlyRevenue ? toDecimal(input.monthlyRevenue) : undefined, notes: input.notes, status: input.status });
+    }),
+  }),
+
+  consultantMetrics: router({
+    summary: consultorProcedure.query(({ ctx }) => db.getConsultorPortfolioMetrics(ctx.user.id)),
+  }),
+
+  subscriptions: router({
+    list: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => {
+      await requireClientAccess(input.clientId, ctx);
+      return db.getServiceSubscriptionsByClient(input.clientId);
+    }),
+    create: protectedProcedure.input(z.object({
+      clientId: z.number(), name: z.string().trim().min(2).max(140), amount: money,
+      billingDay: z.number().int().min(1).max(31),
+    })).mutation(async ({ input, ctx }) => {
+      await requireClientAccess(input.clientId, ctx);
+      return db.createServiceSubscription({ clientId: input.clientId, name: input.name, amount: toDecimal(input.amount), billingDay: input.billingDay, status: "ativa" });
     }),
   }),
 

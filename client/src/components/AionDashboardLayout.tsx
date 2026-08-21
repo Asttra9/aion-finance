@@ -67,8 +67,17 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
   const consultantItems: Item[] = [
     { label: "Visão Aion", href: "/dashboard", icon: ChartNoAxesCombined },
     { label: "Clientes", href: "/clientes", icon: UsersRound },
+    { label: "Operação BPO", href: "/operacao", icon: FileBarChart2 },
+  ];
+
+  const clientContextItems: Item[] = [
+    { label: "Visão do cliente", href: "/dashboard", icon: ChartNoAxesCombined },
+    { label: "Movimentações", href: "/transacoes", icon: WalletCards },
+    { label: "Contas e prazos", href: "/contas-pagar", icon: CalendarClock },
+    { label: "Entradas", href: "/contas-receber", icon: CircleDollarSign },
     { label: "Conciliação", href: "/conciliacao", icon: ArrowRightLeft },
-    { label: "Relatórios", href: "/relatorios", icon: FileBarChart2 },
+    { label: "Relatórios financeiros", href: "/relatorios", icon: FileBarChart2 },
+    { label: "Metas", href: "/metas", icon: Target },
   ];
 
   const personalItems: Item[] = [
@@ -76,7 +85,6 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
     { label: "Minhas contas", href: "/contas-pagar", icon: ReceiptText },
     { label: "Gastos e entradas", href: "/transacoes", icon: WalletCards },
     { label: "Minhas metas", href: "/metas", icon: Target },
-    { label: "Relatórios", href: "/relatorios", icon: FileBarChart2 },
   ];
 
   const businessItems: Item[] = [
@@ -85,12 +93,11 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
     { label: "Contas e obrigações", href: "/contas-pagar", icon: CalendarClock },
     { label: "Entradas", href: "/contas-receber", icon: CircleDollarSign },
     { label: "Metas do negócio", href: "/metas", icon: Target },
-    { label: "Relatórios", href: "/relatorios", icon: FileBarChart2 },
     ...(isMei ? [{ label: "Jornada MEI", href: "/mei-workflow", icon: BriefcaseBusiness }] : []),
   ];
 
-  const menuItems = isConsultor ? consultantItems : isPersonal ? personalItems : businessItems;
-  const workspaceName = isConsultor ? "Consultor Aion" : isPersonal ? "Finanças pessoais" : "Gestão do negócio";
+  const menuItems = isConsultor ? (contextClientId ? clientContextItems : consultantItems) : isPersonal ? personalItems : businessItems;
+  const workspaceName = isConsultor ? (contextClientId ? "Cliente em análise" : "Consultor Aion") : isPersonal ? "Finanças pessoais" : "Gestão do negócio";
   const contextualHref = (href: string) => {
     if (!contextClientId) return href;
     return href === "/dashboard" ? `/clientes/${contextClientId}/dashboard` : `/clientes/${contextClientId}${href}`;
@@ -102,7 +109,7 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
       <div className="flex min-h-screen w-full bg-background">
         <Sidebar className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
           <SidebarHeader className="border-b border-sidebar-border px-4 py-5">
-            <button onClick={() => navigate(isConsultor ? "/clientes" : "/dashboard")} className="flex min-h-11 w-full items-center gap-3 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+            <button onClick={() => navigate("/dashboard")} className="flex min-h-11 w-full items-center gap-3 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
               <img src={AION_MARK_URL} alt="Símbolo da Aion" className="h-10 w-10 rounded-xl object-cover" />
               <span className="min-w-0">
                 <span className="block text-base font-extrabold tracking-[-0.03em]">Aion</span>
@@ -135,10 +142,6 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
           </SidebarContent>
 
           <div className="mt-auto border-t border-sidebar-border p-4">
-            <div className="mb-4 rounded-xl bg-[#3a3838] p-3">
-              <p className="truncate text-sm font-bold text-white">{user?.name ?? "Conta Aion"}</p>
-              <p className="mt-0.5 truncate text-xs text-[#c5bdb8]">{user?.email}</p>
-            </div>
             <Button variant="outline" size="sm" className="min-h-11 w-full border-[#575252] bg-transparent text-[#f8f6f3] hover:bg-[#3a3838] hover:text-white" onClick={() => { logout(); navigate("/"); }}>
               <LogOut className="mr-2 h-4 w-4" /> Sair
             </Button>

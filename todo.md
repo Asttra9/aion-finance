@@ -137,4 +137,27 @@
 - [x] Implementar parser CSV do Mercado Pago e respectiva importação autorizada.
 - [x] Cobrir as melhorias com testes, typecheck, build e validação visual.
 - [x] Registrar evidência visual autenticada da conciliação, categorias e layout sem atalho lateral de Alertas.
-- [ ] Salvar checkpoint das melhorias operacionais.
+- [x] Salvar checkpoint das melhorias operacionais (`3ac741a2`).
+
+## Navegação e painéis orientados por perfil
+
+- [x] Remover e-mail e duplicidade de identificação no rodapé da barra lateral.
+- [x] Ocultar Conciliação e Relatórios da navegação global do Consultor, preservando-os apenas no contexto do cliente selecionado.
+- [x] Criar visão operacional do Consultor Aion com clientes recorrentes, inadimplências, cancelamentos e carteira ativa.
+- [x] Permitir registrar o tipo de atendimento do cliente como recorrente ou pontual, sem inferir dados históricos.
+- [x] Adequar os relatórios do Consultor a indicadores de operação BPO, sem misturá-los aos relatórios financeiros do cliente.
+- [x] Permitir editar a modalidade recorrente ou pontual de clientes já cadastrados.
+- [x] Validar que relatórios financeiros e conciliação permanecem disponíveis apenas no contexto de um cliente selecionado.
+- [x] Criar painel MEI com calendário de prazos, obrigações próximas e dashboards interativos.
+- [x] Validar por teste e navegação autenticada a jornada MEI específica, distinta da gestão empresarial genérica.
+- [x] Criar painel Pessoal com assinaturas recorrentes, gastos da semana e acompanhamento de orçamento.
+- [x] Persistir assinaturas de serviços para que o painel pessoal não dependa de inferências por descrição.
+- [x] Cobrir as novas jornadas com testes, typecheck, build e validação visual por perfil.
+- [x] Validar o redirecionamento e o conteúdo da jornada MEI por testes e perfil temporário; login OAuth real dispensado pelo usuário.
+- [x] Registrar validação visual das jornadas de Consultor Aion, cliente pessoal e cliente MEI; login OAuth real dispensado pelo usuário.
+- [x] Validar a jornada do Consultor Aion após a restauração do papel administrador.
+- [x] Registrar o redirecionamento do cliente MEI pela cobertura automatizada; login OAuth real dispensado pelo usuário.
+- [x] Criar perfis temporários mínimos para validar as jornadas Pessoal e MEI autorizadas pelo usuário.
+- [x] Manter os perfis temporários de validação após os testes, conforme autorizado pelo usuário.
+- [x] Alternar temporariamente a conta administradora para os perfis de validação e restaurar o acesso ao fim do teste.
+- [ ] Salvar checkpoint da reorganização de navegação e painéis.

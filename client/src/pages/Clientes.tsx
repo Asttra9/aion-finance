@@ -22,6 +22,7 @@ export default function Clientes() {
     cpfCnpj: "",
     businessType: "pessoal" as const,
     businessName: "",
+    serviceModel: undefined as "recorrente" | "pontual" | undefined,
     monthlyRevenue: "",
   });
 
@@ -37,10 +38,12 @@ export default function Clientes() {
         cpfCnpj: "",
         businessType: "pessoal",
         businessName: "",
+        serviceModel: undefined,
         monthlyRevenue: "",
       });
     },
   });
+  const updateClientMutation = trpc.clients.update.useMutation({ onSuccess: () => refetch() });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,6 +155,27 @@ export default function Clientes() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="serviceModel">Modalidade de atendimento</Label>
+                  <Select
+                    value={formData.serviceModel ?? "nao-informado"}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        serviceModel: value === "nao-informado" ? undefined : value as "recorrente" | "pontual",
+                      })
+                    }
+                  >
+                    <SelectTrigger id="serviceModel"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="nao-informado">Não informado</SelectItem>
+                      <SelectItem value="recorrente">Recorrente</SelectItem>
+                      <SelectItem value="pontual">Pontual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">A classificação só é usada quando for registrada no cadastro.</p>
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="monthlyRevenue">Receita Mensal Estimada</Label>
                   <Input
                     id="monthlyRevenue"
@@ -206,6 +230,7 @@ export default function Clientes() {
                       <TableHead>Nome</TableHead>
                       <TableHead>Email</TableHead>
                       <TableHead>Tipo</TableHead>
+                      <TableHead>Atendimento</TableHead>
                       <TableHead>Receita Mensal</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Ações</TableHead>
@@ -224,6 +249,25 @@ export default function Clientes() {
                             : client.businessType === "profissional_liberal"
                             ? "Profissional Liberal"
                             : client.businessType.toUpperCase()}
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={client.serviceModel ?? "nao-informado"}
+                            onValueChange={(value) =>
+                              updateClientMutation.mutate({
+                                clientId: client.id,
+                                serviceModel: value === "nao-informado" ? null : value as "recorrente" | "pontual",
+                              })
+                            }
+                            disabled={updateClientMutation.isPending}
+                          >
+                            <SelectTrigger aria-label={`Modalidade de atendimento de ${client.name}`} className="h-9 min-w-34"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="nao-informado">Não informado</SelectItem>
+                              <SelectItem value="recorrente">Recorrente</SelectItem>
+                              <SelectItem value="pontual">Pontual</SelectItem>
+                            </SelectContent>
+                          </Select>
                         </TableCell>
                         <TableCell>
                           {client.monthlyRevenue

@@ -43,6 +43,20 @@
       "when": 1787291082529,
       "tag": "0005_needy_pete_wisdom",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1787296264177,
+      "tag": "0006_purple_quasimodo",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1787296504355,
+      "tag": "0007_loud_loners",
+      "breakpoints": true
     }
   ]
 }

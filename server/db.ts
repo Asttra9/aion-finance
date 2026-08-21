@@ -15,6 +15,7 @@ import {
   transactionCategories,
   financialGoals,
   financialGoalContributions,
+  serviceSubscriptions,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -117,6 +118,50 @@ export async function getClientsByConsultor(consultorId: number) {
     .select()
     .from(clients)
     .where(eq(clients.consultorId, consultorId));
+}
+
+export async function getConsultorPortfolioMetrics(consultorId: number) {
+  const db = await getDb();
+  if (!db) {
+    return { totalClients: 0, activeClients: 0, onboardingClients: 0, recurringClients: 0, cancelledClients: 0, delinquentClients: 0, overdueBalance: 0, delinquentClientIds: [] as number[] };
+  }
+
+  const portfolio = await db.select().from(clients).where(eq(clients.consultorId, consultorId));
+  const clientIds = portfolio.map((client) => client.id);
+  const base = {
+    totalClients: portfolio.length,
+    activeClients: portfolio.filter((client) => client.status === "ativo").length,
+    onboardingClients: portfolio.filter((client) => client.status === "em_onboarding").length,
+    recurringClients: portfolio.filter((client) => client.status === "ativo" && client.serviceModel === "recorrente").length,
+    cancelledClients: portfolio.filter((client) => client.status === "inativo").length,
+  };
+  if (!clientIds.length) return { ...base, delinquentClients: 0, overdueBalance: 0, delinquentClientIds: [] as number[] };
+
+  const [payables, receivables] = await Promise.all([
+    db.select({ clientId: accountsPayable.clientId, status: accountsPayable.status, amount: accountsPayable.amount }).from(accountsPayable).where(inArray(accountsPayable.clientId, clientIds)),
+    db.select({ clientId: accountsReceivable.clientId, status: accountsReceivable.status, amount: accountsReceivable.amount }).from(accountsReceivable).where(inArray(accountsReceivable.clientId, clientIds)),
+  ]);
+  const overdueEntries = [...payables, ...receivables].filter((entry) => entry.status === "vencido");
+  const delinquentClientIds = Array.from(new Set(overdueEntries.map((entry) => entry.clientId)));
+  const overdueBalance = overdueEntries.reduce((total, entry) => total + Number(entry.amount || 0), 0);
+
+  return { ...base, delinquentClients: delinquentClientIds.length, overdueBalance, delinquentClientIds };
+}
+
+export async function getServiceSubscriptionsByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(serviceSubscriptions)
+    .where(eq(serviceSubscriptions.clientId, clientId))
+    .orderBy(serviceSubscriptions.billingDay);
+}
+
+export async function createServiceSubscription(data: typeof serviceSubscriptions.$inferInsert) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.insert(serviceSubscriptions).values(data);
 }
 
 export async function getClientById(clientId: number) {

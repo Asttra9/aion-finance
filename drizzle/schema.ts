@@ -44,6 +44,7 @@ export const clients = mysqlTable("clients", {
   businessType: mysqlEnum("businessType", ["pessoal", "mei", "profissional_liberal", "pj"]).notNull(),
   businessName: varchar("businessName", { length: 255 }),
   status: mysqlEnum("status", ["ativo", "inativo", "em_onboarding"]).default("ativo").notNull(),
+  serviceModel: mysqlEnum("serviceModel", ["recorrente", "pontual"]),
   monthlyRevenue: decimal("monthlyRevenue", { precision: 12, scale: 2 }),
   notes: text("notes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -134,6 +135,24 @@ export const accountsReceivable = mysqlTable("accounts_receivable", {
 
 export type AccountReceivable = typeof accountsReceivable.$inferSelect;
 export type InsertAccountReceivable = typeof accountsReceivable.$inferInsert;
+
+/**
+ * Assinaturas de serviços acompanhadas na jornada pessoal. São cadastradas
+ * explicitamente para não deduzir recorrência a partir de descrições bancárias.
+ */
+export const serviceSubscriptions = mysqlTable("service_subscriptions", {
+  id: int("id").autoincrement().primaryKey(),
+  clientId: int("clientId").notNull(),
+  name: varchar("name", { length: 140 }).notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  billingDay: int("billingDay").notNull(),
+  status: mysqlEnum("status", ["ativa", "pausada", "cancelada"]).default("ativa").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ServiceSubscription = typeof serviceSubscriptions.$inferSelect;
+export type InsertServiceSubscription = typeof serviceSubscriptions.$inferInsert;
 
 /**
  * Financial goals ("caixinhas") for personal and business financial planning.
