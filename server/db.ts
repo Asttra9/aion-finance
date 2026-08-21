@@ -20,6 +20,7 @@ import {
   recurringTransactionOccurrences,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
+import { buildPortfolioMonthlyTrend } from "./portfolioTrend";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -134,7 +135,13 @@ export async function getClientsByConsultor(consultorId: number) {
 export async function getConsultorPortfolioMetrics(consultorId: number) {
   const db = await getDb();
   if (!db) {
-    return { totalClients: 0, activeClients: 0, onboardingClients: 0, recurringClients: 0, cancelledClients: 0, delinquentClients: 0, overdueBalance: 0, delinquentClientIds: [] as number[] };
+    return {
+      totalClients: 0, activeClients: 0, onboardingClients: 0, recurringClients: 0,
+      cancelledClients: 0, delinquentClients: 0, overdueBalance: 0,
+      delinquentClientIds: [] as number[], projectedReceivables30: 0,
+      projectedPayables30: 0, projectedNet30: 0, dueSoonCount: 0,
+      dueSoonAmount: 0, monthlyTrend: [] as Array<{ period: string; income: number; expense: number; result: number }>,
+    };
   }
 
   const portfolio = await db.select().from(clients).where(eq(clients.consultorId, consultorId));
@@ -146,17 +153,41 @@ export async function getConsultorPortfolioMetrics(consultorId: number) {
     recurringClients: portfolio.filter((client) => client.status === "ativo" && client.serviceModel === "recorrente").length,
     cancelledClients: portfolio.filter((client) => client.status === "inativo").length,
   };
-  if (!clientIds.length) return { ...base, delinquentClients: 0, overdueBalance: 0, delinquentClientIds: [] as number[] };
+  if (!clientIds.length) return {
+    ...base, delinquentClients: 0, overdueBalance: 0, delinquentClientIds: [] as number[],
+    projectedReceivables30: 0, projectedPayables30: 0, projectedNet30: 0,
+    dueSoonCount: 0, dueSoonAmount: 0,
+    monthlyTrend: [] as Array<{ period: string; income: number; expense: number; result: number }>,
+  };
 
-  const [payables, receivables] = await Promise.all([
-    db.select({ clientId: accountsPayable.clientId, status: accountsPayable.status, amount: accountsPayable.amount }).from(accountsPayable).where(inArray(accountsPayable.clientId, clientIds)),
-    db.select({ clientId: accountsReceivable.clientId, status: accountsReceivable.status, amount: accountsReceivable.amount }).from(accountsReceivable).where(inArray(accountsReceivable.clientId, clientIds)),
+  const [payables, receivables, portfolioTransactions] = await Promise.all([
+    db.select({ clientId: accountsPayable.clientId, status: accountsPayable.status, amount: accountsPayable.amount, dueDate: accountsPayable.dueDate }).from(accountsPayable).where(inArray(accountsPayable.clientId, clientIds)),
+    db.select({ clientId: accountsReceivable.clientId, status: accountsReceivable.status, amount: accountsReceivable.amount, dueDate: accountsReceivable.dueDate }).from(accountsReceivable).where(inArray(accountsReceivable.clientId, clientIds)),
+    db.select({ date: transactions.date, amount: transactions.amount, type: transactions.type }).from(transactions).where(inArray(transactions.clientId, clientIds)),
   ]);
   const overdueEntries = [...payables, ...receivables].filter((entry) => entry.status === "vencido");
   const delinquentClientIds = Array.from(new Set(overdueEntries.map((entry) => entry.clientId)));
   const overdueBalance = overdueEntries.reduce((total, entry) => total + Number(entry.amount || 0), 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const next30Days = new Date(today);
+  next30Days.setDate(next30Days.getDate() + 30);
+  const next7Days = new Date(today);
+  next7Days.setDate(next7Days.getDate() + 7);
+  const isOpenWithin30Days = (entry: { status: string; dueDate: Date }) =>
+    entry.status === "pendente" && entry.dueDate >= today && entry.dueDate <= next30Days;
+  const projectedReceivables30 = receivables.filter(isOpenWithin30Days).reduce((total, entry) => total + Number(entry.amount || 0), 0);
+  const projectedPayables30 = payables.filter(isOpenWithin30Days).reduce((total, entry) => total + Number(entry.amount || 0), 0);
+  const dueSoonEntries = [...payables, ...receivables].filter((entry) => entry.status === "pendente" && entry.dueDate >= today && entry.dueDate <= next7Days);
+  const monthlyTrend = buildPortfolioMonthlyTrend(portfolioTransactions, today);
 
-  return { ...base, delinquentClients: delinquentClientIds.length, overdueBalance, delinquentClientIds };
+  return {
+    ...base, delinquentClients: delinquentClientIds.length, overdueBalance, delinquentClientIds,
+    projectedReceivables30, projectedPayables30, projectedNet30: projectedReceivables30 - projectedPayables30,
+    dueSoonCount: dueSoonEntries.length,
+    dueSoonAmount: dueSoonEntries.reduce((total, entry) => total + Number(entry.amount || 0), 0),
+    monthlyTrend,
+  };
 }
 
 export async function getServiceSubscriptionsByClient(clientId: number) {

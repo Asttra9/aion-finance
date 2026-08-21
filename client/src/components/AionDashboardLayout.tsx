@@ -105,8 +105,7 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
   }, []);
 
   const consultantItems: Item[] = [
-    { label: "Visão Aion", href: "/dashboard", icon: ChartNoAxesCombined },
-    { label: "Clientes", href: "/clientes", icon: UsersRound },
+    { label: "Visão Geral", href: "/dashboard", icon: ChartNoAxesCombined },
     { label: "Operação BPO", href: "/operacao", icon: FileBarChart2 },
   ];
 
@@ -182,7 +181,7 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
                     <SidebarMenuButton
                       onClick={() => navigate(href)}
                       isActive={active}
-                      className="min-h-11 rounded-xl px-3 text-[0.88rem] font-semibold text-[#ded7d2] hover:bg-[#3a3838] hover:text-white data-[active=true]:bg-primary data-[active=true]:text-white group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:justify-center"
+                      className="min-h-11 rounded-xl px-3 text-[0.88rem] font-semibold text-[#ded7d2] hover:bg-[#3a3838] hover:text-white data-[active=true]:bg-primary data-[active=true]:text-white group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:h-9! group-data-[collapsible=icon]:w-9! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-lg! group-data-[collapsible=icon]:data-[active=true]:bg-primary/15 group-data-[collapsible=icon]:data-[active=true]:text-primary group-data-[collapsible=icon]:data-[active=true]:hover:bg-primary/25"
                     >
                       <Icon className="h-4 w-4" aria-hidden="true" />
                       <span>{item.label}</span>
@@ -201,7 +200,7 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
             <SidebarTrigger className="min-h-11 min-w-11 rounded-xl hover:bg-secondary md:hidden" />
             <div className="min-w-0">
               <p className="aion-eyebrow">Aion Consultoria</p>
-              {isConsultor ? <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="-ml-3 mt-0.5 h-auto max-w-[min(58vw,30rem)] justify-start gap-1.5 rounded-lg px-3 py-1 text-left text-lg font-extrabold tracking-[-0.03em] hover:bg-secondary sm:text-xl"><span className="truncate">{selectedClient ? selectedClient.name : "Selecionar cliente"}</span><ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-72"><DropdownMenuLabel>{selectedClient ? "Trocar cliente" : "Abrir dashboard de cliente"}</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => navigate("/dashboard")}>Visão geral da Aion</DropdownMenuItem><div className="max-h-64 overflow-y-auto">{portfolio.map((client) => <DropdownMenuItem key={client.id} onSelect={() => navigate(`/clientes/${client.id}/dashboard`)} className="flex flex-col items-start gap-0.5 py-2.5"><span className="font-semibold">{client.name}</span><span className="text-xs text-muted-foreground">{client.businessType === "pessoal" ? "Finanças pessoais" : client.businessType === "mei" ? "MEI" : "Gestão empresarial"}</span></DropdownMenuItem>)}{!portfolio.length && <DropdownMenuItem disabled>Nenhum cliente cadastrado</DropdownMenuItem>}</div></DropdownMenuContent></DropdownMenu> : <h1 className="truncate text-lg font-extrabold tracking-[-0.03em] sm:text-xl">{activeLabel}</h1>}
+              {isConsultor ? <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="-ml-3 mt-0.5 h-auto max-w-[min(58vw,30rem)] justify-start gap-1.5 rounded-lg px-3 py-1 text-left text-lg font-extrabold tracking-[-0.03em] hover:bg-secondary sm:text-xl"><span className="truncate">{selectedClient ? selectedClient.name : "Selecionar cliente"}</span><ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-72"><DropdownMenuLabel>{selectedClient ? "Trocar cliente" : "Clientes da carteira"}</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => navigate("/dashboard")}>Voltar à Visão Geral</DropdownMenuItem><div className="max-h-64 overflow-y-auto">{portfolio.map((client) => <DropdownMenuItem key={client.id} onSelect={() => navigate(`/clientes/${client.id}/dashboard`)} className="flex flex-col items-start gap-0.5 py-2.5"><span className="font-semibold">{client.name}</span><span className="text-xs text-muted-foreground">{client.businessType === "pessoal" ? "Finanças pessoais" : client.businessType === "mei" ? "MEI" : "Gestão empresarial"}</span></DropdownMenuItem>)}{!portfolio.length && <DropdownMenuItem disabled>Nenhum cliente cadastrado</DropdownMenuItem>}</div></DropdownMenuContent></DropdownMenu> : <h1 className="truncate text-lg font-extrabold tracking-[-0.03em] sm:text-xl">{activeLabel}</h1>}
             </div>
             <div className="ml-auto flex items-center gap-3">
               <div className="relative" ref={alertsMenuRef}>

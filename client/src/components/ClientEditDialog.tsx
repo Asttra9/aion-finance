@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { formatCpfCnpj, isValidCpfCnpj, normalizeCpfCnpj } from "@shared/brazilianDocument";
 
 type EditableClient = {
   id: number;
@@ -75,16 +76,19 @@ export function ClientEditDialog({ client, open, onOpenChange }: { client: Edita
   const updateDraft = <Key extends keyof ClientDraft>(key: Key, value: ClientDraft[Key]) => {
     setDraft((current) => ({ ...current, [key]: value }));
   };
+  const hasDocument = normalizeCpfCnpj(draft.cpfCnpj).length > 0;
+  const documentIsValid = !hasDocument || isValidCpfCnpj(draft.cpfCnpj);
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!documentIsValid) return;
     updateClient.mutate({
       clientId: client.id,
       name: draft.name.trim(),
       email: emptyToNull(draft.email),
       phone: emptyToNull(draft.phone),
       address: emptyToNull(draft.address),
-      cpfCnpj: emptyToNull(draft.cpfCnpj),
+      cpfCnpj: emptyToNull(normalizeCpfCnpj(draft.cpfCnpj)),
       businessName: emptyToNull(draft.businessName),
       serviceModel: draft.serviceModel === "nao-informado" ? null : draft.serviceModel,
       monthlyRevenue: emptyToNull(draft.monthlyRevenue),
@@ -116,7 +120,16 @@ export function ClientEditDialog({ client, open, onOpenChange }: { client: Edita
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-client-cpf-cnpj">CPF/CNPJ</Label>
-                <Input id="edit-client-cpf-cnpj" value={draft.cpfCnpj} onChange={(event) => updateDraft("cpfCnpj", event.target.value)} maxLength={20} />
+                <Input
+                  id="edit-client-cpf-cnpj"
+                  value={draft.cpfCnpj}
+                  onChange={(event) => updateDraft("cpfCnpj", formatCpfCnpj(event.target.value))}
+                  inputMode="numeric"
+                  placeholder="000.000.000-00"
+                  aria-invalid={!documentIsValid}
+                  maxLength={18}
+                />
+                {hasDocument && !documentIsValid && <p className="text-xs font-medium text-destructive">Informe um CPF ou CNPJ válido.</p>}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-client-phone">Telefone</Label>

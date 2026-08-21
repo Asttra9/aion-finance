@@ -99,6 +99,15 @@ type NotificationLike = {
 const toAmount = (value: string | number) => Number(value) || 0;
 const money = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const chartAxisMoney = (value: number) => {
+  const absolute = Math.abs(value);
+  if (absolute >= 1000) {
+    return `R$ ${(value / 1000).toLocaleString("pt-BR", {
+      maximumFractionDigits: 1,
+    })} mil`;
+  }
+  return `R$ ${Math.round(value).toLocaleString("pt-BR")}`;
+};
 const dateLabel = (value: Date | string) =>
   new Date(value).toLocaleDateString("pt-BR", {
     day: "2-digit",
@@ -1501,6 +1510,56 @@ function ConsultantDashboard({
   );
 }
 
+function ConsultantPortfolioTrend({
+  metrics,
+}: {
+  metrics?: {
+    monthlyTrend: Array<{
+      period: string;
+      income: number;
+      expense: number;
+      result: number;
+    }>;
+  };
+}) {
+  const trend = metrics?.monthlyTrend ?? [];
+  const hasData = trend.some(item => item.income || item.expense);
+  return (
+    <section className="aion-page pb-0">
+      <div className="rounded-[1.45rem] border border-border/90 bg-card p-5 shadow-[0_12px_28px_rgba(62,48,43,0.05)] sm:p-6">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="aion-eyebrow">Visão Geral</p>
+            <h2 className="mt-1 text-xl font-extrabold tracking-[-0.035em] sm:text-2xl">Tendência consolidada da carteira</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Entradas e saídas registradas nos últimos seis períodos disponíveis.</p>
+          </div>
+          <span className="text-xs font-bold uppercase tracking-[.12em] text-muted-foreground">Histórico realizado</span>
+        </div>
+        <div className="mt-5 h-[250px]">
+          {hasData ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={trend} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="consultantIncome" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="var(--chart-2)" stopOpacity={0.28} /><stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0.02} /></linearGradient>
+                  <linearGradient id="consultantExpense" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="var(--primary)" stopOpacity={0.22} /><stop offset="100%" stopColor="var(--primary)" stopOpacity={0.02} /></linearGradient>
+                </defs>
+                <CartesianGrid stroke="var(--border)" strokeDasharray="4 4" vertical={false} />
+                <XAxis dataKey="period" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: "var(--muted-foreground)" }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} tickFormatter={chartAxisMoney} />
+                <Tooltip formatter={(value: number, name: string) => [money(value), name === "income" ? "Entradas" : "Saídas"]} contentStyle={{ borderRadius: 14, border: "1px solid var(--border)", background: "var(--card)" }} />
+                <Area type="monotone" dataKey="income" name="Entradas" stroke="var(--chart-2)" strokeWidth={2.5} fill="url(#consultantIncome)" />
+                <Area type="monotone" dataKey="expense" name="Saídas" stroke="var(--primary)" strokeWidth={2.5} fill="url(#consultantExpense)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-full items-center justify-center rounded-xl bg-secondary/55 px-6 text-center text-sm text-muted-foreground">Ainda não há movimentações consolidadas para formar a tendência da carteira.</div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [location, navigate] = useLocation();
@@ -1599,12 +1658,15 @@ export default function Dashboard() {
       ) : (
         <>
           {isConsultor && !requestedClientId ? (
-            <DailyFocus
-              notifications={[]}
-              transactions={[]}
-              clients={clients}
-              navigate={navigate}
-            />
+            <>
+              <ConsultantPortfolioTrend metrics={consultantMetrics} />
+              <DailyFocus
+                notifications={[]}
+                transactions={[]}
+                clients={clients}
+                navigate={navigate}
+              />
+            </>
           ) : (
             <DailyFocus
               notifications={notifications}
@@ -1612,13 +1674,7 @@ export default function Dashboard() {
               navigate={path => navigate(navigateWithinContext(path))}
             />
           )}
-          {isConsultor && !requestedClientId ? (
-            <ConsultantDashboard
-              clients={clients}
-              metrics={consultantMetrics}
-              navigate={navigate}
-            />
-          ) : businessType === "pessoal" ? (
+          {!isConsultor || requestedClientId ? businessType === "pessoal" ? (
             <PersonalDashboard
               clientId={activeClientId!}
               transactions={transactions}
@@ -1638,7 +1694,7 @@ export default function Dashboard() {
               navigate={path => navigate(navigateWithinContext(path))}
               label={client?.businessName || client?.name || "sua empresa"}
             />
-          )}
+          ) : null}
         </>
       )}
     </AionDashboardLayout>

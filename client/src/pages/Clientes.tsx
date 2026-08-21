@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { formatCpfCnpj, isValidCpfCnpj, normalizeCpfCnpj } from "@shared/brazilianDocument";
 
 const initialFormData = {
   name: "",
@@ -46,16 +47,19 @@ export default function Clientes() {
     },
   });
   const editingClient = clients?.find((client) => client.id === editingClientId);
+  const hasDocument = normalizeCpfCnpj(formData.cpfCnpj).length > 0;
+  const documentIsValid = !hasDocument || isValidCpfCnpj(formData.cpfCnpj);
 
   const handleCreate = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (!documentIsValid) return;
     createMutation.mutate({
       name: formData.name.trim(),
       businessType: formData.businessType,
       ...(formData.email.trim() ? { email: formData.email.trim() } : {}),
       ...(formData.phone.trim() ? { phone: formData.phone.trim() } : {}),
       ...(formData.address.trim() ? { address: formData.address.trim() } : {}),
-      ...(formData.cpfCnpj.trim() ? { cpfCnpj: formData.cpfCnpj.trim() } : {}),
+      ...(formData.cpfCnpj.trim() ? { cpfCnpj: normalizeCpfCnpj(formData.cpfCnpj) } : {}),
       ...(formData.businessName.trim() ? { businessName: formData.businessName.trim() } : {}),
       ...(formData.serviceModel ? { serviceModel: formData.serviceModel } : {}),
       ...(formData.monthlyRevenue.trim() ? { monthlyRevenue: formData.monthlyRevenue } : {}),
@@ -98,7 +102,16 @@ export default function Clientes() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="cpfCnpj">CPF/CNPJ</Label>
-                  <Input id="cpfCnpj" value={formData.cpfCnpj} onChange={(event) => setFormData({ ...formData, cpfCnpj: event.target.value })} maxLength={20} />
+                  <Input
+                    id="cpfCnpj"
+                    value={formData.cpfCnpj}
+                    onChange={(event) => setFormData({ ...formData, cpfCnpj: formatCpfCnpj(event.target.value) })}
+                    inputMode="numeric"
+                    placeholder="000.000.000-00"
+                    aria-invalid={!documentIsValid}
+                    maxLength={18}
+                  />
+                  {hasDocument && !documentIsValid && <p className="text-xs font-medium text-destructive">Informe um CPF ou CNPJ válido.</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="businessType">Jornada financeira *</Label>
@@ -132,7 +145,7 @@ export default function Clientes() {
                   <Input id="monthlyRevenue" type="number" min="0" step="0.01" value={formData.monthlyRevenue} onChange={(event) => setFormData({ ...formData, monthlyRevenue: event.target.value })} />
                 </div>
                 {createMutation.error && <p role="alert" className="text-sm text-destructive">{createMutation.error.message || "Não foi possível criar o cliente."}</p>}
-                <Button type="submit" disabled={createMutation.isPending} className="w-full">
+                <Button type="submit" disabled={createMutation.isPending || !documentIsValid} className="w-full">
                   {createMutation.isPending ? <><Spinner className="mr-2 h-4 w-4" />Criando...</> : "Criar cliente"}
                 </Button>
               </form>

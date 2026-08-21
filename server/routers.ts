@@ -11,6 +11,7 @@ import { storagePut } from "./storage";
 import { buildFinancialReportPdf } from "./reportPdf";
 import { filterEntriesByMonth } from "./financialCalculations";
 import { isValidMoney, parseMoney, toDecimal } from "./financialValues";
+import { isValidCpfCnpj, normalizeCpfCnpj } from "../shared/brazilianDocument";
 
 const consultorProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.user.role !== "consultor_aion" && ctx.user.role !== "admin") {
@@ -33,6 +34,7 @@ async function requireClientAccess(clientId: number, ctx: { user: NonNullable<im
 }
 
 const money = z.string().refine(isValidMoney, "Informe um valor financeiro válido.");
+const cpfCnpj = z.string().trim().max(20).transform(normalizeCpfCnpj).refine((value) => value.length === 0 || isValidCpfCnpj(value), "Informe um CPF ou CNPJ válido.");
 const workflowStep = z.object({ step: z.string(), completed: z.boolean(), completedAt: z.string().optional() });
 const workflowDocument = z.object({ name: z.string(), uploaded: z.boolean(), uploadedAt: z.string().optional(), fileKey: z.string().optional() });
 
@@ -101,7 +103,7 @@ export const appRouter = router({
     get: protectedProcedure.input(z.object({ clientId: z.number() })).query(({ input, ctx }) => requireClientAccess(input.clientId, ctx)),
     me: protectedProcedure.query(({ ctx }) => db.getClientByUserId(ctx.user.id)),
     create: consultorProcedure.input(z.object({
-      name: z.string().min(2), email: z.string().email().optional(), phone: z.string().optional(), address: z.string().trim().max(800).optional(), cpfCnpj: z.string().optional(),
+      name: z.string().min(2), email: z.string().email().optional(), phone: z.string().optional(), address: z.string().trim().max(800).optional(), cpfCnpj: cpfCnpj.optional(),
       businessType: z.enum(["pessoal", "mei", "profissional_liberal", "pj"]), businessName: z.string().optional(), serviceModel: z.enum(["recorrente", "pontual"]).optional(), monthlyRevenue: money.optional(), notes: z.string().optional(),
     })).mutation(({ input, ctx }) => db.createClient({ ...input, consultorId: ctx.user.id, monthlyRevenue: input.monthlyRevenue ? toDecimal(input.monthlyRevenue) : undefined })),
     update: consultorProcedure.input(z.object({
@@ -110,7 +112,7 @@ export const appRouter = router({
       email: z.string().trim().email().max(320).nullable().optional(),
       phone: z.string().trim().max(20).nullable().optional(),
       address: z.string().trim().max(800).nullable().optional(),
-      cpfCnpj: z.string().trim().max(20).nullable().optional(),
+      cpfCnpj: cpfCnpj.nullable().optional(),
       businessName: z.string().trim().max(255).nullable().optional(),
       serviceModel: z.enum(["recorrente", "pontual"]).nullable().optional(),
       monthlyRevenue: money.nullable().optional(),

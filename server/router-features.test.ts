@@ -323,7 +323,7 @@ describe("financial CRUD", () => {
     await caller.clients.update({
       clientId: 3,
       name: "Cliente atualizado",
-      cpfCnpj: "12345678901",
+      cpfCnpj: "12345678909",
       address: "Rua das Flores, 123 — Centro",
       phone: "11999999999",
       email: "cliente.atualizado@example.com",
@@ -335,7 +335,7 @@ describe("financial CRUD", () => {
     });
     expect(dbMocks.updateClient).toHaveBeenCalledWith(3, expect.objectContaining({
       name: "Cliente atualizado",
-      cpfCnpj: "12345678901",
+      cpfCnpj: "12345678909",
       address: "Rua das Flores, 123 — Centro",
       monthlyRevenue: "3200.50",
     }));
@@ -346,13 +346,13 @@ describe("financial CRUD", () => {
     await caller.clients.create({
       name: "Novo cliente MEI",
       businessType: "mei",
-      cpfCnpj: "12345678000190",
+      cpfCnpj: "11222333000181",
       address: "Avenida Aion, 100 — Centro",
       phone: "1133334444",
     });
     expect(dbMocks.createClient).toHaveBeenCalledWith(expect.objectContaining({
       consultorId: 11,
-      cpfCnpj: "12345678000190",
+      cpfCnpj: "11222333000181",
       address: "Avenida Aion, 100 — Centro",
     }));
   });

@@ -225,3 +225,13 @@
 - [x] Restringir a edição cadastral direta ao Consultor Aion e orientar clientes a acionarem o suporte para alterações.
 - [x] Validar a persistência de endereço, CPF/CNPJ e demais dados cadastrais nos fluxos de criação e edição.
 - [x] Exibir os dados cadastrais do cliente em modo somente leitura, com orientação explícita para solicitar alterações ao suporte.
+- [x] Aplicar formatação e validação visual de CPF/CNPJ nos formulários cadastrais de clientes.
+- [x] Renomear a entrada inicial do Consultor Aion para Visão Geral e remover a duplicação da área BPO nesse painel.
+- [x] Ocultar a aba lateral de Clientes para o Consultor, preservando acesso útil à carteira por ações contextuais.
+- [x] Tornar o seletor de clientes integralmente acionável e remover o item estático “Abrir dashboard de cliente”.
+- [x] Adicionar acesso direto à carteira completa de clientes na Operação BPO.
+- [x] Redesenhar a Visão Geral com gráfico de tendência em largura total acima do Foco do Dia.
+- [x] Transformar a Operação BPO em painel analítico com KPIs e projeções acionáveis, removendo textos explicativos internos.
+- [x] Corrigir a proporção visual dos itens ativos quando a barra lateral estiver recolhida.
+- [x] Ancorar a tendência consolidada do Consultor Aion no último período com movimentações quando não houver dados no mês corrente.
+- [x] Ajustar a escala monetária dos gráficos consultivos para valores abaixo de mil reais permanecerem legíveis.

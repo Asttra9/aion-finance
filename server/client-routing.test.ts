@@ -45,9 +45,12 @@ describe("roteamento contextual da Aion", () => {
     expect(appSource).toContain('<Route path="/operacao" component={ConsultorOperacao} />');
     expect(appSource).toContain('<Route path="/pessoal" component={Pessoal} />');
     expect(operationSource).toContain('Clientes ativos');
-    expect(operationSource).toContain('Recorrentes');
+    expect(operationSource).toContain('Atendimentos recorrentes');
     expect(operationSource).toContain('Inadimplências');
-    expect(operationSource).toContain('Cancelamentos');
+    expect(operationSource).toContain('Resultado projetado · 30 dias');
+    expect(operationSource).toContain('Tendência financeira da carteira');
+    expect(operationSource).toContain('Ver carteira completa');
+    expect(operationSource).not.toContain('Critérios do relatório');
     expect(personalSource).toContain('Assinaturas de serviços');
     expect(personalSource).toContain('Gastos da semana');
     expect(personalSource).toContain('trpc.subscriptions.create');
@@ -114,13 +117,21 @@ describe("roteamento contextual da Aion", () => {
     expect(transactionsSource).toContain('setDateOrder(value)');
   });
 
-  it("oferece ao consultor seleção de cliente, barra lateral recolhível e menu de perfil", () => {
+  it("oferece ao consultor seleção de cliente funcional, barra lateral proporcional e menu de perfil", () => {
+    const consultantNavigation = layoutSource.slice(layoutSource.indexOf("const consultantItems"), layoutSource.indexOf("const clientContextItems"));
     expect(layoutSource).toContain('collapsible="icon"');
     expect(layoutSource).toContain('aria-label={sidebarOpen ? "Recolher barra lateral" : "Expandir barra lateral"}');
     expect(layoutSource).toContain('onOpenChange={handleSidebarOpenChange}');
     expect(layoutSource).toContain('writeSidebarPreference(open)');
-    expect(layoutSource).toContain('Abrir dashboard de cliente');
+    expect(consultantNavigation).toContain('label: "Visão Geral"');
+    expect(consultantNavigation).not.toContain('label: "Clientes"');
+    expect(layoutSource).toContain('Clientes da carteira');
+    expect(layoutSource).toContain('Voltar à Visão Geral');
+    expect(layoutSource).not.toContain('Abrir dashboard de cliente');
     expect(layoutSource).toContain('navigate(`/clientes/${client.id}/dashboard`)');
+    expect(layoutSource).toContain('group-data-[collapsible=icon]:h-9!');
+    expect(layoutSource).toContain('group-data-[collapsible=icon]:rounded-lg!');
+    expect(layoutSource).toContain('group-data-[collapsible=icon]:data-[active=true]:bg-primary/15');
     expect(layoutSource).toContain('Editar informações');
     expect(layoutSource).toContain('trpc.auth.updateProfile.useMutation');
     expect(layoutSource).toContain('Sair');
@@ -136,5 +147,15 @@ describe("roteamento contextual da Aion", () => {
     expect(layoutSource).toContain('dados cadastrais são atualizados pelo suporte Aion');
     expect(layoutSource).toContain('Meus dados cadastrais');
     expect(layoutSource).toContain('Para qualquer alteração, solicite atendimento ao suporte Aion');
+  });
+
+  it("formata CPF/CNPJ e mantém a tendência consultiva acima do Foco do Dia", () => {
+    expect(clientSource).toContain('formatCpfCnpj(event.target.value)');
+    expect(clientEditDialogSource).toContain('formatCpfCnpj(event.target.value)');
+    expect(clientSource).toContain('isValidCpfCnpj(formData.cpfCnpj)');
+    expect(clientEditDialogSource).toContain('isValidCpfCnpj(draft.cpfCnpj)');
+    const consultantRender = dashboardSource.slice(dashboardSource.lastIndexOf('isConsultor && !requestedClientId'));
+    expect(consultantRender.indexOf('ConsultantPortfolioTrend')).toBeLessThan(consultantRender.indexOf('DailyFocus'));
+    expect(consultantRender).not.toContain('<ConsultantDashboard');
   });
 });
