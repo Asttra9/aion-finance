@@ -154,6 +154,23 @@ export type FinancialGoal = typeof financialGoals.$inferSelect;
 export type InsertFinancialGoal = typeof financialGoals.$inferInsert;
 
 /**
+ * Individual contributions to financial goals. The denormalized month enables
+ * quick monthly views without inferring financial periods from the UI.
+ */
+export const financialGoalContributions = mysqlTable("financial_goal_contributions", {
+  id: int("id").autoincrement().primaryKey(),
+  goalId: int("goalId").notNull(),
+  clientId: int("clientId").notNull(),
+  amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
+  note: varchar("note", { length: 280 }),
+  month: varchar("month", { length: 7 }).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type FinancialGoalContribution = typeof financialGoalContributions.$inferSelect;
+export type InsertFinancialGoalContribution = typeof financialGoalContributions.$inferInsert;
+
+/**
  * MEI Opening Workflow - tracks the process of opening a MEI
  */
 export const meiWorkflow = mysqlTable("mei_workflow", {

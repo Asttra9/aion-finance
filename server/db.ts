@@ -13,6 +13,7 @@ import {
   notifications,
   transactionCategories,
   financialGoals,
+  financialGoalContributions,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -300,6 +301,43 @@ export async function deleteFinancialGoal(goalId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   return db.delete(financialGoals).where(eq(financialGoals.id, goalId));
+}
+
+export async function createFinancialGoalContribution(data: typeof financialGoalContributions.$inferInsert) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.insert(financialGoalContributions).values(data);
+}
+
+export async function getFinancialGoalContributionsByClient(clientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({
+      id: financialGoalContributions.id,
+      goalId: financialGoalContributions.goalId,
+      clientId: financialGoalContributions.clientId,
+      goalName: financialGoals.name,
+      goalColor: financialGoals.color,
+      amount: financialGoalContributions.amount,
+      note: financialGoalContributions.note,
+      month: financialGoalContributions.month,
+      createdAt: financialGoalContributions.createdAt,
+    })
+    .from(financialGoalContributions)
+    .innerJoin(financialGoals, eq(financialGoalContributions.goalId, financialGoals.id))
+    .where(eq(financialGoalContributions.clientId, clientId))
+    .orderBy(desc(financialGoalContributions.createdAt));
+}
+
+export async function getFinancialGoalContributionsByGoal(goalId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(financialGoalContributions)
+    .where(eq(financialGoalContributions.goalId, goalId))
+    .orderBy(desc(financialGoalContributions.createdAt));
 }
 
 // ===== MEI WORKFLOW QUERIES =====

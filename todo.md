@@ -113,3 +113,14 @@
 - [x] Alinhar o cabeçalho e a identificação da conta ao padrão visual enviado.
 - [x] Criar testes, typecheck, build e validação visual das novas jornadas.
 - [x] Salvar checkpoint da evolução de acesso, metas e indicadores (`0105135c`).
+
+## Correções de navegação e evolução de metas
+
+- [x] Registrar a rota `/clientes` e validar o acesso do Consultor Aion.
+- [x] Redirecionar a rota raiz autenticada para a jornada financeira do cliente, sem forçar a visão do consultor.
+- [x] Persistir histórico de aportes com data, valor e meta associada.
+- [x] Exibir menu suspenso no sino com alertas e aportes mensais detalhados.
+- [x] Adicionar uma entrada visível para Metas na navegação de clientes pessoal e empresarial.
+- [x] Criar tela dedicada de Metas com caixinhas, aportes e histórico por mês.
+- [x] Criar testes, typecheck, build e validação visual das correções.
+- [ ] Salvar checkpoint das correções de navegação e metas.

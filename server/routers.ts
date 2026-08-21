@@ -79,6 +79,10 @@ export const appRouter = router({
       await requireClientAccess(input.clientId, ctx);
       return db.getFinancialGoalsByClient(input.clientId);
     }),
+    contributions: protectedProcedure.input(z.object({ clientId: z.number() })).query(async ({ input, ctx }) => {
+      await requireClientAccess(input.clientId, ctx);
+      return db.getFinancialGoalContributionsByClient(input.clientId);
+    }),
     create: protectedProcedure.input(z.object({
       clientId: z.number(),
       name: z.string().min(2).max(140),
@@ -99,11 +103,19 @@ export const appRouter = router({
         icon: input.icon,
       });
     }),
-    contribute: protectedProcedure.input(z.object({ goalId: z.number(), amount: money })).mutation(async ({ input, ctx }) => {
+    contribute: protectedProcedure.input(z.object({ goalId: z.number(), amount: money, note: z.string().trim().max(280).optional() })).mutation(async ({ input, ctx }) => {
       const goal = await db.getFinancialGoalById(input.goalId);
       if (!goal) throw new TRPCError({ code: "NOT_FOUND", message: "Meta não encontrada." });
       await requireClientAccess(goal.clientId, ctx);
       const nextAmount = Number(goal.savedAmount) + Number(input.amount);
+      const contribution = {
+        goalId: goal.id,
+        clientId: goal.clientId,
+        amount: Number(input.amount) as any,
+        note: input.note || undefined,
+        month: new Date().toISOString().slice(0, 7),
+      };
+      await db.createFinancialGoalContribution(contribution);
       return db.updateFinancialGoal(goal.id, { savedAmount: nextAmount as any });
     }),
     update: protectedProcedure.input(z.object({

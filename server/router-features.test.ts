@@ -23,6 +23,8 @@ const dbMocks = vi.hoisted(() => ({
   createFinancialGoal: vi.fn(),
   updateFinancialGoal: vi.fn(),
   deleteFinancialGoal: vi.fn(),
+  createFinancialGoalContribution: vi.fn(),
+  getFinancialGoalContributionsByClient: vi.fn(),
   getTransactionById: vi.fn(),
   createTransaction: vi.fn(),
   updateTransaction: vi.fn(),
@@ -142,6 +144,8 @@ describe("financialGoals", () => {
     dbMocks.createFinancialGoal.mockResolvedValue({ id: 71, clientId: 3 });
     dbMocks.updateFinancialGoal.mockResolvedValue({ id: 71, clientId: 3, savedAmount: "500" });
     dbMocks.deleteFinancialGoal.mockResolvedValue({ success: true });
+    dbMocks.createFinancialGoalContribution.mockResolvedValue({ id: 1, goalId: 71, clientId: 3, amount: "150" });
+    dbMocks.getFinancialGoalContributionsByClient.mockResolvedValue([{ id: 1, goalId: 71, clientId: 3, goalName: "Reserva de segurança", amount: "150", month: "2026-08" }]);
   });
 
   it("permite criar e aportar em uma caixinha da própria jornada", async () => {
@@ -150,7 +154,16 @@ describe("financialGoals", () => {
     await caller.financialGoals.contribute({ goalId: 71, amount: "150" });
 
     expect(dbMocks.createFinancialGoal).toHaveBeenCalledWith(expect.objectContaining({ clientId: 3, targetAmount: 2000, savedAmount: 0 }));
+    expect(dbMocks.createFinancialGoalContribution).toHaveBeenCalledWith(expect.objectContaining({ goalId: 71, clientId: 3, amount: 150 }));
     expect(dbMocks.updateFinancialGoal).toHaveBeenCalledWith(71, expect.objectContaining({ savedAmount: 500 }));
+  });
+
+  it("retorna o histórico de aportes apenas para o cliente autorizado", async () => {
+    const caller = appRouter.createCaller(createClientContext());
+    const result = await caller.financialGoals.contributions({ clientId: 3 });
+
+    expect(result).toHaveLength(1);
+    expect(dbMocks.getFinancialGoalContributionsByClient).toHaveBeenCalledWith(3);
   });
 
   it("impede aporte em uma meta vinculada a outro cliente", async () => {

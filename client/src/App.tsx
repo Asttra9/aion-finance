@@ -12,11 +12,30 @@ import Relatorios from "@/pages/Relatorios";
 import MeiWorkflow from "@/pages/MeiWorkflow";
 import Conciliacao from "@/pages/Conciliacao";
 import Notificacoes from "@/pages/Notificacoes";
+import Metas from "@/pages/Metas";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Spinner } from "@/components/ui/spinner";
+import { useEffect } from "react";
+import { useLocation } from "wouter";
+
+function AuthenticatedRoot() {
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const isConsultor = user?.role === "consultor_aion" || user?.role === "admin";
+
+  useEffect(() => {
+    navigate(isConsultor ? "/clientes" : "/dashboard");
+  }, [isConsultor, navigate]);
+
+  return (
+    <div className="flex h-screen items-center justify-center">
+      <Spinner className="h-8 w-8 text-primary" />
+    </div>
+  );
+}
 
 function Router() {
   const { isAuthenticated, loading } = useAuth();
@@ -43,16 +62,18 @@ function Router() {
 
   return (
     <Switch>
-      <Route path="/" component={Dashboard} />
+      <Route path="/" component={AuthenticatedRoot} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/pessoal" component={Dashboard} />
       <Route path="/negocio" component={Dashboard} />
       <Route path="/acesso" component={Acesso} />
+      <Route path="/clientes" component={Clientes} />
       <Route path="/clientes/:id/dashboard" component={Dashboard} />
       <Route path="/clientes/:id/transacoes" component={Transacoes} />
       <Route path="/clientes/:id/contas-pagar" component={ContasPagar} />
       <Route path="/clientes/:id/contas-receber" component={ContasReceber} />
       <Route path="/clientes/:id/relatorios" component={Relatorios} />
+      <Route path="/clientes/:id/metas" component={Metas} />
       <Route path="/clientes/:id/mei-workflow" component={MeiWorkflow} />
       <Route path="/clientes/:id/conciliacao" component={Conciliacao} />
       <Route path="/clientes/:id/notificacoes" component={Notificacoes} />
@@ -61,6 +82,7 @@ function Router() {
       <Route path="/contas-pagar" component={ContasPagar} />
       <Route path="/contas-receber" component={ContasReceber} />
       <Route path="/relatorios" component={Relatorios} />
+      <Route path="/metas" component={Metas} />
       <Route path="/mei-workflow" component={MeiWorkflow} />
       <Route path="/conciliacao" component={Conciliacao} />
       <Route path="/notificacoes" component={Notificacoes} />
