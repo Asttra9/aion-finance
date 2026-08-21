@@ -55,4 +55,16 @@ describe("roteamento contextual da Aion", () => {
     expect(meiSource).toContain('trpc.meiWorkflow.get');
     expect(meiSource).toContain('Fluxo empresarial nos últimos 7 dias');
   });
+
+  it("oferece ao consultor seleção de cliente, barra lateral recolhível e menu de perfil", () => {
+    expect(layoutSource).toContain('collapsible="icon"');
+    expect(layoutSource).toContain('aria-label="Recolher barra lateral"');
+    expect(layoutSource).toContain('onOpenChange={handleSidebarOpenChange}');
+    expect(layoutSource).toContain('writeSidebarPreference(open)');
+    expect(layoutSource).toContain('Abrir dashboard de cliente');
+    expect(layoutSource).toContain('navigate(`/clientes/${client.id}/dashboard`)');
+    expect(layoutSource).toContain('Editar informações');
+    expect(layoutSource).toContain('trpc.auth.updateProfile.useMutation');
+    expect(layoutSource).toContain('Sair');
+  });
 });

@@ -1,6 +1,25 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { readSidebarPreference, writeSidebarPreference } from "@/lib/sidebarPreference";
+import {
   Sidebar,
   SidebarContent,
   SidebarHeader,
@@ -17,16 +36,18 @@ import {
   BriefcaseBusiness,
   CalendarClock,
   ChartNoAxesCombined,
+  ChevronDown,
   CircleDollarSign,
   FileBarChart2,
   Landmark,
   LogOut,
+  PencilLine,
   ReceiptText,
   Target,
   UsersRound,
   WalletCards,
 } from "lucide-react";
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
 
 interface AionDashboardLayoutProps { children: ReactNode; }
@@ -43,6 +64,7 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
   const [location, navigate] = useLocation();
   const isConsultor = user?.role === "consultor_aion" || user?.role === "admin";
   const { data: linkedClient } = trpc.clients.me.useQuery(undefined, { enabled: !!user && !isConsultor });
+  const { data: portfolio = [] } = trpc.clients.list.useQuery(undefined, { enabled: !!user && isConsultor });
   const isPersonal = linkedClient?.businessType === "pessoal";
   const isMei = linkedClient?.businessType === "mei";
   const contextClientId = location.match(/^\/clientes\/(\d+)/)?.[1];
@@ -55,6 +77,18 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
   const monthlyContributions = contributions.filter((contribution) => contribution.month === monthKey).slice(0, 4);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const alertsMenuRef = useRef<HTMLDivElement>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileName, setProfileName] = useState(user?.name ?? "");
+  const [sidebarOpen, setSidebarOpen] = useState(() => readSidebarPreference());
+  const utils = trpc.useUtils();
+  const updateProfile = trpc.auth.updateProfile.useMutation({
+    onSuccess: async () => {
+      await utils.auth.me.invalidate();
+      setProfileOpen(false);
+    },
+  });
+
+  useEffect(() => setProfileName(user?.name ?? ""), [user?.name]);
 
   useEffect(() => {
     const closeWhenClickingOutside = (event: MouseEvent) => {
@@ -103,23 +137,35 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
     return href === "/dashboard" ? `/clientes/${contextClientId}/dashboard` : `/clientes/${contextClientId}${href}`;
   };
   const activeLabel = menuItems.find((item) => location === contextualHref(item.href))?.label ?? workspaceName;
+  const selectedClient = contextClientId ? portfolio.find((client) => client.id === Number(contextClientId)) : undefined;
+  const handleProfileSave = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    updateProfile.mutate({ name: profileName.trim() });
+  };
+  const handleSidebarOpenChange = (open: boolean) => {
+    setSidebarOpen(open);
+    writeSidebarPreference(open);
+  };
 
   return (
-    <SidebarProvider>
+    <SidebarProvider open={sidebarOpen} onOpenChange={handleSidebarOpenChange}>
       <div className="flex min-h-screen w-full bg-background">
-        <Sidebar className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
+        <Sidebar collapsible="icon" className="border-r border-sidebar-border bg-sidebar text-sidebar-foreground">
           <SidebarHeader className="border-b border-sidebar-border px-4 py-5">
-            <button onClick={() => navigate("/dashboard")} className="flex min-h-11 w-full items-center gap-3 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+            <div className="flex items-center gap-2">
+            <button onClick={() => navigate("/dashboard")} className="flex min-h-11 min-w-0 flex-1 items-center gap-3 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
               <img src={AION_MARK_URL} alt="Símbolo da Aion" className="h-10 w-10 rounded-xl object-cover" />
-              <span className="min-w-0">
+              <span className="min-w-0 group-data-[collapsible=icon]:hidden">
                 <span className="block text-base font-extrabold tracking-[-0.03em]">Aion</span>
                 <span className="block truncate text-xs text-[#c5bdb8]">{workspaceName}</span>
               </span>
             </button>
+            <SidebarTrigger aria-label="Recolher barra lateral" className="hidden min-h-10 min-w-10 rounded-xl text-[#ded7d2] hover:bg-[#3a3838] hover:text-white md:inline-flex" />
+            </div>
           </SidebarHeader>
 
           <SidebarContent className="px-2 py-2">
-            <p className="aion-nav-label">Seu espaço</p>
+            <p className="aion-nav-label group-data-[collapsible=icon]:sr-only">Seu espaço</p>
             <SidebarMenu>
               {menuItems.map((item) => {
                 const Icon = item.icon;
@@ -141,11 +187,7 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
             </SidebarMenu>
           </SidebarContent>
 
-          <div className="mt-auto border-t border-sidebar-border p-4">
-            <Button variant="outline" size="sm" className="min-h-11 w-full border-[#575252] bg-transparent text-[#f8f6f3] hover:bg-[#3a3838] hover:text-white" onClick={() => { logout(); navigate("/"); }}>
-              <LogOut className="mr-2 h-4 w-4" /> Sair
-            </Button>
-          </div>
+          <div className="mt-auto border-t border-sidebar-border p-4 group-data-[collapsible=icon]:p-2"><p className="px-2 text-xs text-[#a89f99] group-data-[collapsible=icon]:hidden">Gestão financeira consultiva</p></div>
         </Sidebar>
 
         <div className="min-w-0 flex-1">
@@ -153,7 +195,7 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
             <SidebarTrigger className="min-h-11 min-w-11 rounded-xl hover:bg-secondary md:hidden" />
             <div className="min-w-0">
               <p className="aion-eyebrow">Aion Consultoria</p>
-              <h1 className="truncate text-lg font-extrabold tracking-[-0.03em] sm:text-xl">{activeLabel}</h1>
+              {isConsultor ? <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="-ml-3 mt-0.5 h-auto max-w-[min(58vw,30rem)] justify-start gap-1.5 rounded-lg px-3 py-1 text-left text-lg font-extrabold tracking-[-0.03em] hover:bg-secondary sm:text-xl"><span className="truncate">{selectedClient ? selectedClient.name : "Selecionar cliente"}</span><ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" /></Button></DropdownMenuTrigger><DropdownMenuContent align="start" className="w-72"><DropdownMenuLabel>{selectedClient ? "Trocar cliente" : "Abrir dashboard de cliente"}</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => navigate("/dashboard")}>Visão geral da Aion</DropdownMenuItem><div className="max-h-64 overflow-y-auto">{portfolio.map((client) => <DropdownMenuItem key={client.id} onSelect={() => navigate(`/clientes/${client.id}/dashboard`)} className="flex flex-col items-start gap-0.5 py-2.5"><span className="font-semibold">{client.name}</span><span className="text-xs text-muted-foreground">{client.businessType === "pessoal" ? "Finanças pessoais" : client.businessType === "mei" ? "MEI" : "Gestão empresarial"}</span></DropdownMenuItem>)}{!portfolio.length && <DropdownMenuItem disabled>Nenhum cliente cadastrado</DropdownMenuItem>}</div></DropdownMenuContent></DropdownMenu> : <h1 className="truncate text-lg font-extrabold tracking-[-0.03em] sm:text-xl">{activeLabel}</h1>}
             </div>
             <div className="ml-auto flex items-center gap-3">
               <div className="relative" ref={alertsMenuRef}>
@@ -170,20 +212,13 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
                   </div> : <div className="px-5 py-6 text-sm text-muted-foreground">Abra a visão de um cliente para consultar os alertas e os aportes das suas metas.</div>}
                 </div>}
               </div>
-              <div className="hidden min-w-0 items-center gap-2.5 sm:flex">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#363636] text-sm font-extrabold text-white">
-                  {(user?.name ?? "A").trim().slice(0, 1).toUpperCase()}
-                </span>
-                <span className="min-w-0">
-                  <span className="block max-w-36 truncate text-sm font-extrabold">{user?.name ?? "Conta Aion"}</span>
-                  <span className="block text-xs text-muted-foreground">{isConsultor ? "Consultor Aion" : isPersonal ? "Pessoal / Família" : "Microempresário"}</span>
-                </span>
-              </div>
+              <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="flex h-auto min-w-11 items-center gap-2.5 rounded-xl px-1.5 py-1.5 text-left hover:bg-secondary sm:px-2"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#363636] text-sm font-extrabold text-white">{(user?.name ?? "A").trim().slice(0, 1).toUpperCase()}</span><span className="hidden min-w-0 sm:block"><span className="block max-w-36 truncate text-sm font-extrabold">{user?.name ?? "Conta Aion"}</span><span className="block text-xs text-muted-foreground">{isConsultor ? "Consultor Aion" : isPersonal ? "Pessoal / Família" : "Microempresário"}</span></span><ChevronDown className="hidden h-4 w-4 shrink-0 text-muted-foreground sm:block" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-56"><DropdownMenuLabel>Minha conta</DropdownMenuLabel><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => setProfileOpen(true)}><PencilLine className="mr-2 h-4 w-4" />Editar informações</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem className="text-primary focus:bg-[#f9e8eb] focus:text-primary" onSelect={() => { logout(); navigate("/"); }}><LogOut className="mr-2 h-4 w-4" />Sair</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
             </div>
           </header>
           <main className="min-w-0 p-4 sm:p-6 lg:p-8">{children}</main>
         </div>
       </div>
+      <Dialog open={profileOpen} onOpenChange={setProfileOpen}><DialogContent><form onSubmit={handleProfileSave}><DialogHeader><DialogTitle>Editar informações</DialogTitle><DialogDescription>Atualize o nome que aparece na sua área de trabalho.</DialogDescription></DialogHeader><div className="py-5"><Label htmlFor="profile-name">Nome de exibição</Label><Input id="profile-name" className="mt-2 min-h-11" value={profileName} onChange={(event) => setProfileName(event.target.value)} minLength={2} maxLength={120} required /></div><DialogFooter><Button type="button" variant="outline" onClick={() => setProfileOpen(false)}>Cancelar</Button><Button type="submit" disabled={updateProfile.isPending}>{updateProfile.isPending ? "Salvando..." : "Salvar informações"}</Button></DialogFooter></form></DialogContent></Dialog>
     </SidebarProvider>
   );
 }

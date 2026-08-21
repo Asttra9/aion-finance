@@ -160,4 +160,15 @@
 - [x] Criar perfis temporários mínimos para validar as jornadas Pessoal e MEI autorizadas pelo usuário.
 - [x] Manter os perfis temporários de validação após os testes, conforme autorizado pelo usuário.
 - [x] Alternar temporariamente a conta administradora para os perfis de validação e restaurar o acesso ao fim do teste.
-- [ ] Salvar checkpoint da reorganização de navegação e painéis.
+- [x] Salvar checkpoint da reorganização de navegação e painéis (`9ce2cb07`).
+
+## Experiência de seleção e navegação do Consultor
+
+- [x] Criar seletor de cliente no dashboard do Consultor Aion para abrir a visão individual sem sair da operação.
+- [x] Tornar a barra lateral recolhível, com estados acessíveis e persistência local da preferência.
+- [x] Restaurar o estado recolhido ou expandido da barra lateral ao carregar a aplicação.
+- [x] Testar a persistência do estado da barra lateral entre interações simuladas.
+- [x] Transformar a identificação do perfil em menu clicável com opções de editar informações e sair.
+- [x] Garantir que o menu de perfil funcione de forma apropriada para consultor, empreendedor e cliente pessoal.
+- [x] Criar testes, typecheck, build e validação visual das novas interações.
+- [ ] Salvar checkpoint da experiência de seleção e navegação.

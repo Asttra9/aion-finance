@@ -108,6 +108,15 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function updateUserProfile(userId: number, input: { name: string }) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível.");
+
+  await db.update(users).set({ name: input.name }).where(eq(users.id, userId));
+  const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  return result[0];
+}
+
 // ===== CLIENT QUERIES =====
 
 export async function getClientsByConsultor(consultorId: number) {

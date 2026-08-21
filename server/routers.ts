@@ -52,6 +52,7 @@ export const appRouter = router({
   system: systemRouter,
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
+    updateProfile: protectedProcedure.input(z.object({ name: z.string().trim().min(2).max(120) })).mutation(({ input, ctx }) => db.updateUserProfile(ctx.user.id, input)),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
