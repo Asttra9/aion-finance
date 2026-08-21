@@ -26,7 +26,7 @@ Os endpoints estão organizados por domínios sob o roteador principal `appRoute
 ### 2.2 Clientes (`clients`) — Exclusivo Consultor Aion
 - `clients.list`: Retorna a lista de clientes vinculados ao consultor.
 - `clients.get`: Retorna o perfil de um cliente específico (respeitando isolamento de acesso).
-- `clients.create`: Cadastra um novo cliente (MEI, profissional liberal ou PJ).
+- `clients.create`: Cadastra um novo cliente pessoal, MEI, profissional liberal ou PJ.
 - `clients.update`: Atualiza dados cadastrais, receita estimada ou status do cliente.
 
 ### 2.3 Transações e Conciliação (`transactions`)
@@ -41,8 +41,9 @@ Os endpoints estão organizados por domínios sob o roteador principal `appRoute
 ### 2.4 Contas a Pagar e Receber (`accountsPayable` / `accountsReceivable`)
 - CRUD completo com suporte a status (`pendente`, `pago`, `vencido`, `cancelado`), datas de vencimento e valores monetários.
 
-### 2.5 Workflow de Abertura MEI (`meiWorkflow`)
-- `meiWorkflow.get`: Recupera ou inicializa o checklist padrão de 8 etapas e documentos necessários para a abertura do MEI.
+### 2.5 Jornada MEI (`meiWorkflow`)
+- Este módulo é opcional: serve exclusivamente para o acompanhamento de abertura ou regularização de MEI conduzido pela Aion.
+- `meiWorkflow.get`: Recupera ou inicializa o checklist padrão de 8 etapas e documentos necessários para a abertura ou regularização.
 - `meiWorkflow.updateStatus`: Atualiza o progresso das etapas, status geral e observações.
 
 ### 2.6 Relatórios e Geração de PDF (`reports`)
@@ -62,3 +63,7 @@ Os endpoints estão organizados por domínios sob o roteador principal `appRoute
 1. **Importação OFX:** O consultor acessa a aba de conciliação do cliente, envia o arquivo OFX do banco, e o sistema processa automaticamente a extração de lançamentos e a prevenção de duplicidades.
 2. **Geração de Relatórios DRE/Fluxo de Caixa:** Na aba de relatórios, o consultor seleciona o mês e o tipo de relatório. O sistema compila os dados, gera o PDF consultivo com identidade visual corporativa e disponibiliza o download seguro.
 3. **Isolamento de Dados:** Usuários com o perfil `cliente` que tentarem acessar dados de outro ID receberão um erro HTTP `FORBIDDEN` garantindo a privacidade das informações financeiras.
+
+4. **Lembretes recorrentes:** Alertas podem ser gerados de forma segura pelo procedimento `notifications.generateDueAlerts` durante o uso operacional. Para execução diária autônoma em produção, a Aion deve configurar um job de Heartbeat após a publicação do projeto, com callback autenticado; timers locais em processo não são utilizados.
+
+5. **Jornadas de produto:** O Cliente Pessoal visualiza gastos, entradas, contas e inadimplência. O Microempresário visualiza caixa, entradas, saídas, obrigações e recebimentos. O Consultor Aion acompanha a carteira sem misturar as duas experiências.

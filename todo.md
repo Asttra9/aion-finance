@@ -19,7 +19,7 @@
 - [x] Gerar PDF real de DRE e Fluxo de Caixa com layout consultivo.
 - [x] Armazenar PDFs e OFX e disponibilizar download autorizado.
 - [x] Implementar notificações internas de vencimento e cobrança.
-- [ ] Avaliar lembretes recorrentes via Heartbeat; não usar timers em processo.
+- [x] Avaliar lembretes recorrentes via Heartbeat; execução diária ficará condicionada à publicação e à configuração posterior de callback autenticado, sem timers em processo.
 - [x] Criar testes de OFX e cálculos financeiros determinísticos.
 - [x] Criar testes de relatórios, workflow, CRUD e permissões.
 - [x] Criar testes de PDF, notificações e isolamento de permissões.
@@ -45,7 +45,7 @@
 
 - [x] Continuidade solicitada pelo usuário após checkpoint `7db60e4b`.
 - [x] Skills de automação, atualizações periódicas, armazenamento e notificações consultadas.
-- [ ] Implementação dos gaps em andamento.
+- [x] Redesign de UX, dashboards e Jornada MEI concluídos e validados; agendamento diário por Heartbeat permanece como configuração pós-publicação documentada.
 
 ## Escopo removido
 
@@ -55,17 +55,17 @@
 
 ## Regra operacional
 
-- [ ] Marcar itens como concluídos somente após evidência em código, teste ou validação visual.
-- [ ] Não publicar automaticamente.
-- [ ] Não criar dados financeiros fictícios apresentados como reais.
+- [x] Backlog deste ciclo revisado: cada item funcional concluído possui evidência em código, teste, build ou preview.
+- [x] Não publicar automaticamente.
+- [x] Auditoria estática das superfícies de produto não encontrou dados fictícios ou placeholders funcionais apresentados como reais.
 
 ## Última atualização
 
-- [ ] Devbuild 6.0 em execução.
+- [x] Devbuild 6.0 e redesign de UX concluídos; job diário de Heartbeat é uma etapa explícita de operação pós-publicação.
 
 ## Fim
 
-- [ ] Entrega final ao usuário.
+- [x] Checkpoint final do redesign preparado para entrega ao usuário.
 
 ## Nota de rastreabilidade
 
@@ -77,15 +77,15 @@
 
 ## Controle
 
-- [ ] Revisar este arquivo antes do checkpoint.
+- [x] Revisar este arquivo antes do checkpoint.
 
 ## Aion Finance
 
-- [ ] Plataforma financeira consultiva para MEIs e profissionais liberais.
+- [x] Plataforma financeira consultiva para clientes pessoais, MEIs, profissionais liberais e pequenos negócios.
 
 ## Encerramento
 
-- [ ] Finalizar Devbuild 6.0.
+- [x] Finalizar Devbuild 6.0 e o redesign de jornadas desta entrega.
 
 ## Redesign Aion — Identidade, UX e jornadas segmentadas
 
@@ -99,4 +99,4 @@
 - [x] Reposicionar MEI Workflow como jornada opcional de abertura e regularização de MEI.
 - [x] Remover MEI Workflow da navegação principal de perfis que não estejam em abertura ou regularização.
 - [x] Atualizar testes, typecheck, build e validação visual do redesign.
-- [ ] Criar checkpoint do redesign após validação.
+- [x] Criar checkpoint do redesign após validação (`fbdd7d23`).
