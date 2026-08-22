@@ -111,6 +111,35 @@ export type ClientOnboardingProfile = typeof clientOnboardingProfiles.$inferSele
 export type InsertClientOnboardingProfile = typeof clientOnboardingProfiles.$inferInsert;
 
 /**
+ * Solicitações públicas de acesso analisadas na fila Aion — Moderação.
+ * Permanecem separadas da carteira até uma aprovação explícita do consultor
+ * escolhido; a senha é preservada somente em forma de hash.
+ */
+export const accountAccessRequests = mysqlTable(
+  "account_access_requests",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    consultorId: int("consultorId").notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    email: varchar("email", { length: 320 }).notNull(),
+    pendingEmail: varchar("pendingEmail", { length: 320 }),
+    passwordHash: varchar("passwordHash", { length: 255 }).notNull(),
+    businessType: mysqlEnum("businessType", ["pessoal", "mei"]).notNull(),
+    status: mysqlEnum("status", ["pendente", "aprovada", "recusada"]).default("pendente").notNull(),
+    decidedAt: timestamp("decidedAt"),
+    decidedBy: int("decidedBy"),
+    createdUserId: int("createdUserId"),
+    createdClientId: int("createdClientId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (table) => [uniqueIndex("account_access_requests_pending_email_unique").on(table.pendingEmail)],
+);
+
+export type AccountAccessRequest = typeof accountAccessRequests.$inferSelect;
+export type InsertAccountAccessRequest = typeof accountAccessRequests.$inferInsert;
+
+/**
  * Transaction categories for OFX import and reconciliation
  */
 export const transactionCategories = mysqlTable("transaction_categories", {

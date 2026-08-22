@@ -4,6 +4,8 @@ import NotFound from "@/pages/NotFound";
 import Home from "@/pages/Home";
 import Acesso from "@/pages/Acesso";
 import AtivarConta from "@/pages/AtivarConta";
+import SolicitarConta from "@/pages/SolicitarConta";
+import Moderacao from "@/pages/Moderacao";
 import Clientes from "@/pages/Clientes";
 import Dashboard from "@/pages/Dashboard";
 import Transacoes from "@/pages/Transacoes";
@@ -57,6 +59,7 @@ const ConsultorClientGoals = () => <ConsultorOnly><Metas /></ConsultorOnly>;
 const ConsultorClientMeiWorkflow = () => <ConsultorOnly><MeiWorkflow /></ConsultorOnly>;
 const ConsultorClientReconciliation = () => <ConsultorOnly><Conciliacao /></ConsultorOnly>;
 const ConsultorClientNotifications = () => <ConsultorOnly><Notificacoes /></ConsultorOnly>;
+const ConsultorModeracao = () => <ConsultorOnly><Moderacao /></ConsultorOnly>;
 
 function Router() {
   const { isAuthenticated, loading } = useAuth();
@@ -75,6 +78,7 @@ function Router() {
         <Route path="/" component={Acesso} />
         <Route path="/acesso" component={Acesso} />
         <Route path="/ativar-conta" component={AtivarConta} />
+        <Route path="/solicitar-conta" component={SolicitarConta} />
         <Route path="/apresentacao" component={Home} />
         <Route path="/404" component={NotFound} />
         <Route component={NotFound} />
@@ -91,6 +95,8 @@ function Router() {
       <Route path="/negocio" component={Dashboard} />
       <Route path="/acesso" component={Acesso} />
       <Route path="/ativar-conta" component={AtivarConta} />
+      <Route path="/solicitar-conta" component={SolicitarConta} />
+      <Route path="/moderacao" component={ConsultorModeracao} />
       <Route path="/clientes" component={ConsultorClientes} />
       <Route path="/operacao" component={ConsultorOperacao} />
       <Route path="/clientes/:id/dashboard" component={ConsultorClientDashboard} />

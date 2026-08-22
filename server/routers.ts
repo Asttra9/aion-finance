@@ -39,6 +39,7 @@ async function requireClientAccess(clientId: number, ctx: { user: NonNullable<im
 
 const money = z.string().refine(isValidMoney, "Informe um valor financeiro válido.");
 const cpfCnpj = z.string().trim().max(20).transform(normalizeCpfCnpj).refine((value) => value.length === 0 || isValidCpfCnpj(value), "Informe um CPF ou CNPJ válido.");
+const localPassword = z.string().min(10, "A senha deve ter pelo menos 10 caracteres.").max(256).refine((value) => /[a-zA-Z]/.test(value) && /\d/.test(value), "A senha deve incluir letras e números.");
 const workflowStep = z.object({ step: z.string(), completed: z.boolean(), completedAt: z.string().optional() });
 const workflowDocument = z.object({ name: z.string(), uploaded: z.boolean(), uploadedAt: z.string().optional(), fileKey: z.string().optional() });
 
@@ -142,7 +143,7 @@ export const appRouter = router({
     acceptInvite: publicProcedure
       .input(z.object({
         token: z.string().min(40).max(200),
-        password: z.string().min(10).max(256),
+        password: localPassword,
         profile: z.discriminatedUnion("profileType", [
           z.object({
             profileType: z.literal("pessoal"),
@@ -177,6 +178,42 @@ export const appRouter = router({
           throw new TRPCError({ code: "BAD_REQUEST", message: "Este convite não está mais disponível." });
         }
         return { success: true } as const;
+      }),
+    availableConsultants: publicProcedure.query(() => db.getAvailableConsultants()),
+    requestAccount: publicProcedure
+      .input(z.object({
+        name: z.string().trim().min(2).max(255),
+        email: z.string().trim().email().max(320),
+        password: localPassword,
+        businessType: z.enum(["pessoal", "mei"]),
+        consultorId: z.number().int().positive(),
+      }))
+      .mutation(async ({ input }) => {
+        const result = await db.createAccountAccessRequest({
+          consultorId: input.consultorId,
+          name: input.name,
+          email: input.email,
+          passwordHash: await hashLocalPassword(input.password),
+          businessType: input.businessType,
+        });
+        if (result.state === "consultor_invalido") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "O Consultor Aion selecionado não está disponível." });
+        }
+        return { success: true } as const;
+      }),
+  }),
+
+  moderation: router({
+    listRequests: consultorProcedure.query(({ ctx }) => db.getAccountAccessRequestsByConsultor(ctx.user.id)),
+    pendingCount: consultorProcedure.query(({ ctx }) => db.getPendingAccountAccessRequestCount(ctx.user.id)),
+    decideRequest: consultorProcedure
+      .input(z.object({ requestId: z.number().int().positive(), decision: z.enum(["aprovar", "recusar"]) }))
+      .mutation(async ({ input, ctx }) => {
+        const result = await db.decideAccountAccessRequest({ requestId: input.requestId, consultorId: ctx.user.id, decision: input.decision });
+        if (result.state === "nao_encontrada") throw new TRPCError({ code: "NOT_FOUND", message: "Solicitação não encontrada." });
+        if (result.state === "ja_decidida") throw new TRPCError({ code: "CONFLICT", message: "Esta solicitação já foi processada." });
+        if (result.state === "conta_existente") throw new TRPCError({ code: "CONFLICT", message: "Já existe uma conta ativa para este e-mail." });
+        return result;
       }),
   }),
 

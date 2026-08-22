@@ -1,7 +1,6 @@
-import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import {
   InsertUser,
   users,
@@ -21,6 +20,7 @@ import {
   recurringTransactionOccurrences,
   accountInvites,
   clientOnboardingProfiles,
+  accountAccessRequests,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 import { buildPortfolioMonthlyTrend } from "./portfolioTrend";
@@ -336,6 +336,138 @@ export async function acceptAccountInvite(input: {
 
   await db.update(accountInvites).set({ status: "aceito", acceptedAt: now }).where(and(eq(accountInvites.id, invite.id), eq(accountInvites.status, "pendente")));
   return { state: "aceito" as const, userId, clientId: client.id };
+}
+
+export async function getAvailableConsultants() {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select({ id: users.id, name: users.name, email: users.email })
+    .from(users)
+    .where(inArray(users.role, ["consultor_aion", "admin"]))
+    .orderBy(users.name);
+}
+
+export async function createAccountAccessRequest(input: {
+  consultorId: number;
+  name: string;
+  email: string;
+  passwordHash: string;
+  businessType: "pessoal" | "mei";
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível.");
+  const email = input.email.trim().toLowerCase();
+
+  const [consultor, existingUser, pendingRequest] = await Promise.all([
+    db.select({ id: users.id }).from(users).where(and(eq(users.id, input.consultorId), inArray(users.role, ["consultor_aion", "admin"]))).limit(1),
+    db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1),
+    db.select({ id: accountAccessRequests.id }).from(accountAccessRequests).where(eq(accountAccessRequests.pendingEmail, email)).limit(1),
+  ]);
+
+  if (!consultor[0]) return { state: "consultor_invalido" as const };
+  if (existingUser[0]) return { state: "conta_existente" as const };
+  if (pendingRequest[0]) return { state: "pendente" as const };
+
+  try {
+    const result = await db.insert(accountAccessRequests).values({
+      consultorId: input.consultorId,
+      name: input.name.trim(),
+      email,
+      pendingEmail: email,
+      passwordHash: input.passwordHash,
+      businessType: input.businessType,
+      status: "pendente",
+    });
+    return { state: "criada" as const, requestId: Number(result[0].insertId) };
+  } catch (error) {
+    if (error instanceof Error && /duplicate|unique/i.test(error.message)) return { state: "pendente" as const };
+    throw error;
+  }
+}
+
+export async function getAccountAccessRequestsByConsultor(consultorId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(accountAccessRequests)
+    .where(eq(accountAccessRequests.consultorId, consultorId))
+    .orderBy(desc(accountAccessRequests.createdAt));
+}
+
+export async function getPendingAccountAccessRequestCount(consultorId: number) {
+  const requests = await getAccountAccessRequestsByConsultor(consultorId);
+  return requests.filter((request) => request.status === "pendente").length;
+}
+
+export async function decideAccountAccessRequest(input: {
+  requestId: number;
+  consultorId: number;
+  decision: "aprovar" | "recusar";
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Banco de dados indisponível.");
+  const now = new Date();
+
+  return db.transaction(async (tx) => {
+    const result = await tx
+      .select()
+      .from(accountAccessRequests)
+      .where(and(eq(accountAccessRequests.id, input.requestId), eq(accountAccessRequests.consultorId, input.consultorId)))
+      .limit(1);
+    const request = result[0];
+    if (!request) return { state: "nao_encontrada" as const };
+    if (request.status !== "pendente") return { state: "ja_decidida" as const };
+
+    if (input.decision === "recusar") {
+      const updated = await tx
+        .update(accountAccessRequests)
+        .set({ status: "recusada", pendingEmail: null, decidedAt: now, decidedBy: input.consultorId })
+        .where(and(eq(accountAccessRequests.id, request.id), eq(accountAccessRequests.status, "pendente")));
+      if (Number(updated[0].affectedRows ?? 0) !== 1) return { state: "ja_decidida" as const };
+      return { state: "recusada" as const };
+    }
+
+    const existingUser = await tx.select({ id: users.id }).from(users).where(eq(users.email, request.email)).limit(1);
+    if (existingUser[0]) return { state: "conta_existente" as const };
+
+    const clientResult = await tx.insert(clients).values({
+      consultorId: input.consultorId,
+      name: request.name,
+      email: request.email,
+      businessType: request.businessType,
+      status: "ativo",
+    });
+    const clientId = Number(clientResult[0].insertId);
+    const userResult = await tx.insert(users).values({
+      openId: `local-client-${clientId}-${randomUUID()}`,
+      name: request.name,
+      email: request.email,
+      passwordHash: request.passwordHash,
+      passwordUpdatedAt: now,
+      failedLoginAttempts: 0,
+      role: "cliente",
+      loginMethod: "senha_local",
+      lastSignedIn: now,
+    });
+    const userId = Number(userResult[0].insertId);
+    await tx.update(clients).set({ userId }).where(eq(clients.id, clientId));
+
+    const updated = await tx
+      .update(accountAccessRequests)
+      .set({
+        status: "aprovada",
+        pendingEmail: null,
+        decidedAt: now,
+        decidedBy: input.consultorId,
+        createdUserId: userId,
+        createdClientId: clientId,
+      })
+      .where(and(eq(accountAccessRequests.id, request.id), eq(accountAccessRequests.status, "pendente")));
+    if (Number(updated[0].affectedRows ?? 0) !== 1) throw new Error("A solicitação já foi processada.");
+    return { state: "aprovada" as const, userId, clientId };
+  });
 }
 
 // ===== CLIENT QUERIES =====

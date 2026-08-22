@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { startLogin } from "@/const";
-import { ArrowRight, Building2, Eye, EyeOff, HeartHandshake, LockKeyhole, ShieldCheck } from "lucide-react";
+import { ArrowRight, Building2, Eye, EyeOff, HeartHandshake, LockKeyhole, ShieldCheck, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
 
@@ -82,6 +82,7 @@ export default function Acesso() {
             </form>
 
             <button type="button" onClick={() => setJourney(isBusiness ? "pessoal" : "empresarial")} className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl border border-[#e5dfda] px-4 py-3 text-sm font-bold text-[#5f5956] transition hover:border-[#b21d31]/35 hover:bg-[#f9e8eb] hover:text-[#b21d31]">{isBusiness ? <><HeartHandshake className="h-4 w-4" />Entrar como Pessoal / Família</> : <><Building2 className="h-4 w-4" />Entrar como MEI / Microempresa</>}</button>
+            <button type="button" onClick={() => window.location.assign("/solicitar-conta")} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl border border-[#b21d31]/25 bg-[#fbf4f3] px-4 py-3 text-sm font-extrabold text-[#8f1727] transition hover:border-[#b21d31] hover:bg-[#f9e8eb]"><UserPlus className="h-4 w-4" />Solicitar uma conta</button>
             <button type="button" onClick={startLogin} className="mt-5 w-full text-center text-xs font-bold text-[#5f5956] underline-offset-4 hover:text-[#b21d31] hover:underline">Consultor Aion: entrar com conta corporativa</button>
             <p className="mt-4 flex items-center justify-center gap-2 text-center text-xs leading-relaxed text-muted-foreground"><LockKeyhole className="h-3.5 w-3.5 shrink-0" />A jornada é liberada somente após a validação das suas credenciais.</p>
           </div>

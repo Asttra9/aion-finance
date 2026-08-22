@@ -50,6 +50,11 @@ const dbMocks = vi.hoisted(() => ({
   revokeClientAccountInvite: vi.fn(),
   getAccountInvitePreview: vi.fn(),
   acceptAccountInvite: vi.fn(),
+  getAvailableConsultants: vi.fn(),
+  createAccountAccessRequest: vi.fn(),
+  getAccountAccessRequestsByConsultor: vi.fn(),
+  getPendingAccountAccessRequestCount: vi.fn(),
+  decideAccountAccessRequest: vi.fn(),
 }));
 
 vi.mock("./db", async () => {
@@ -180,6 +185,74 @@ describe("convites e ativação de conta", () => {
       profile: { profileType: "pessoal", personalGoal: "Poupar", incomeRange: "Até R$ 2 mil" },
     })).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(dbMocks.acceptAccountInvite).not.toHaveBeenCalled();
+  });
+});
+
+describe("solicitações de conta e Aion — Moderação", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    dbMocks.getAvailableConsultants.mockResolvedValue([{ id: 11, name: "Consultor Aion", email: "consultor@example.com" }]);
+    dbMocks.createAccountAccessRequest.mockResolvedValue({ state: "criada", requestId: 91 });
+    dbMocks.getAccountAccessRequestsByConsultor.mockResolvedValue([{ id: 91, consultorId: 11, name: "Joana Lima", email: "joana@example.com", businessType: "pessoal", status: "pendente", createdAt: new Date() }]);
+    dbMocks.getPendingAccountAccessRequestCount.mockResolvedValue(1);
+    dbMocks.decideAccountAccessRequest.mockResolvedValue({ state: "aprovada", clientId: 23, userId: 31 });
+  });
+
+  it("lista apenas consultores disponíveis no cadastro público", async () => {
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.auth.availableConsultants()).resolves.toEqual([{ id: 11, name: "Consultor Aion", email: "consultor@example.com" }]);
+  });
+
+  it("recebe pedido com senha protegida e não expõe o estado de duplicidade", async () => {
+    dbMocks.createAccountAccessRequest.mockResolvedValue({ state: "pendente" });
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.auth.requestAccount({ name: "Joana Lima", email: "JOANA@EXAMPLE.COM", password: "SenhaAion2026", businessType: "pessoal", consultorId: 11 })).resolves.toEqual({ success: true });
+    expect(dbMocks.createAccountAccessRequest).toHaveBeenCalledWith(expect.objectContaining({
+      name: "Joana Lima",
+      email: "JOANA@EXAMPLE.COM",
+      businessType: "pessoal",
+      consultorId: 11,
+      passwordHash: expect.stringMatching(/^scrypt\$/),
+    }));
+    expect(dbMocks.createAccountAccessRequest.mock.calls[0]?.[0]?.passwordHash).not.toContain("SenhaAion2026");
+  });
+
+  it("rejeita senha pública sem letras e números", async () => {
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.auth.requestAccount({ name: "Joana Lima", email: "joana@example.com", password: "1234567890", businessType: "mei", consultorId: 11 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(dbMocks.createAccountAccessRequest).not.toHaveBeenCalled();
+  });
+
+  it("impede pedido destinado a consultor indisponível", async () => {
+    dbMocks.createAccountAccessRequest.mockResolvedValue({ state: "consultor_invalido" });
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.auth.requestAccount({ name: "Joana Lima", email: "joana@example.com", password: "SenhaAion2026", businessType: "mei", consultorId: 44 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("restringe a fila de moderação ao consultor responsável", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    await expect(caller.moderation.listRequests()).resolves.toHaveLength(1);
+    expect(dbMocks.getAccountAccessRequestsByConsultor).toHaveBeenCalledWith(11);
+    await expect(caller.moderation.pendingCount()).resolves.toBe(1);
+    expect(dbMocks.getPendingAccountAccessRequestCount).toHaveBeenCalledWith(11);
+  });
+
+  it("impede que clientes consultem ou decidam solicitações de moderação", async () => {
+    const caller = appRouter.createCaller(createClientContext());
+    await expect(caller.moderation.listRequests()).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller.moderation.decideRequest({ requestId: 91, decision: "aprovar" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("aprova apenas a solicitação pertencente ao consultor autenticado", async () => {
+    const caller = appRouter.createCaller(createConsultorContext());
+    await expect(caller.moderation.decideRequest({ requestId: 91, decision: "aprovar" })).resolves.toMatchObject({ state: "aprovada", clientId: 23, userId: 31 });
+    expect(dbMocks.decideAccountAccessRequest).toHaveBeenCalledWith({ requestId: 91, consultorId: 11, decision: "aprovar" });
+  });
+
+  it("reporta decisão concorrente sem criar uma segunda conta", async () => {
+    dbMocks.decideAccountAccessRequest.mockResolvedValue({ state: "ja_decidida" });
+    const caller = appRouter.createCaller(createConsultorContext());
+    await expect(caller.moderation.decideRequest({ requestId: 91, decision: "recusar" })).rejects.toMatchObject({ code: "CONFLICT" });
   });
 });
 

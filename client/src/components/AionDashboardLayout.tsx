@@ -45,6 +45,7 @@ import {
   Moon,
   PencilLine,
   ReceiptText,
+  ShieldCheck,
   Target,
   Sun,
   UsersRound,
@@ -76,7 +77,9 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
   const alertsQueryInput = useMemo(() => ({ clientId: activeClientId ?? 0 }), [activeClientId]);
   const { data: alerts = [] } = trpc.notifications.list.useQuery(alertsQueryInput, { enabled: !!activeClientId });
   const { data: contributions = [] } = trpc.financialGoals.contributions.useQuery(alertsQueryInput, { enabled: !!activeClientId });
+  const { data: pendingModeration = 0 } = trpc.moderation.pendingCount.useQuery(undefined, { enabled: !!user && isConsultor });
   const unreadAlerts = alerts.filter((alert) => !alert.read);
+  const totalBellItems = unreadAlerts.length + pendingModeration;
   const monthKey = new Date().toISOString().slice(0, 7);
   const monthlyContributions = contributions.filter((contribution) => contribution.month === monthKey).slice(0, 4);
   const [alertsOpen, setAlertsOpen] = useState(false);
@@ -204,13 +207,13 @@ export default function AionDashboardLayout({ children }: AionDashboardLayoutPro
             </div>
             <div className="ml-auto flex items-center gap-3">
               <div className="relative" ref={alertsMenuRef}>
-                  <Button type="button" variant="outline" size="icon" aria-expanded={alertsOpen} aria-controls="aion-alerts-menu" onClick={() => setAlertsOpen((open) => !open)} aria-label={`Abrir alertas${unreadAlerts.length ? `: ${unreadAlerts.length} não lido(s)` : ""}`} title="Alertas" className="relative h-11 w-11 rounded-full border-border bg-card text-card-foreground shadow-sm transition hover:border-primary hover:bg-accent hover:text-primary">
+                  <Button type="button" variant="outline" size="icon" aria-expanded={alertsOpen} aria-controls="aion-alerts-menu" onClick={() => setAlertsOpen((open) => !open)} aria-label={`Abrir alertas${totalBellItems ? `: ${totalBellItems} item(ns) pendente(s)` : ""}`} title="Alertas" className="relative h-11 w-11 rounded-full border-border bg-card text-card-foreground shadow-sm transition hover:border-primary hover:bg-accent hover:text-primary">
                     <BellRing className="h-[1.05rem] w-[1.05rem]" />
-                    {unreadAlerts.length > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.6rem] font-extrabold text-white ring-2 ring-background" aria-hidden="true">{unreadAlerts.length > 9 ? "9+" : unreadAlerts.length}</span>}
+                    {totalBellItems > 0 && <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[0.6rem] font-extrabold text-white ring-2 ring-background" aria-hidden="true">{totalBellItems > 9 ? "9+" : totalBellItems}</span>}
                   </Button>
                 {alertsOpen && <div id="aion-alerts-menu" role="dialog" aria-label="Alertas e aportes" className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[22rem] overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-xl sm:w-[25rem]">
                   <div className="border-b border-border px-5 py-4"><p className="font-extrabold">Alertas e aportes</p><p className="mt-0.5 text-xs text-muted-foreground">O que merece atenção agora.</p></div>
-                  {activeClientId ? <div className="max-h-[min(60vh,34rem)] overflow-y-auto">
+                  {isConsultor && !contextClientId ? <div className="p-5"><section className="rounded-xl bg-secondary/70 p-4"><div className="flex items-start gap-3"><ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" /><div className="min-w-0"><p className="font-extrabold">Aion — Moderação</p><p className="mt-1 text-xs leading-relaxed text-muted-foreground">{pendingModeration ? `${pendingModeration} solicitação(ões) aguardando sua decisão.` : "Nenhuma solicitação de conta pendente."}</p></div></div><Button size="sm" className="mt-4 w-full" onClick={() => { setAlertsOpen(false); navigate("/moderacao"); }}>Abrir moderação</Button></section></div> : activeClientId ? <div className="max-h-[min(60vh,34rem)] overflow-y-auto">
                     <section className="px-5 py-4"><div className="flex items-center justify-between gap-3"><p className="text-xs font-extrabold uppercase tracking-[.13em] text-muted-foreground">Alertas recentes</p>{unreadAlerts.length > 0 && <span className="rounded-full bg-accent px-2 py-0.5 text-[0.65rem] font-extrabold text-primary">{unreadAlerts.length} novo(s)</span>}</div><div className="mt-3 space-y-2">{alerts.slice(0, 3).map((alert) => <div key={alert.id} className="rounded-xl bg-secondary/70 px-3.5 py-3"><div className="flex items-start gap-2"><span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${alert.read ? "bg-muted-foreground/50" : "bg-primary"}`} /><span className="min-w-0"><span className="block truncate text-sm font-bold">{alert.title}</span><span className="mt-0.5 block line-clamp-2 text-xs text-muted-foreground">{alert.message || "Acompanhe este item pela central de alertas."}</span></span></div></div>)}{!alerts.length && <p className="rounded-xl bg-secondary/60 px-3.5 py-4 text-sm text-muted-foreground">Não há alertas financeiros recentes.</p>}</div></section>
                     <section className="border-t border-border px-5 py-4"><p className="text-xs font-extrabold uppercase tracking-[.13em] text-muted-foreground">Aportes deste mês</p><div className="mt-3 space-y-2">{monthlyContributions.map((contribution) => <div key={contribution.id} className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-3.5 py-3"><span className="min-w-0"><span className="flex items-center gap-2 truncate text-sm font-bold"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: contribution.goalColor }} />{contribution.goalName}</span><span className="mt-0.5 block text-xs text-muted-foreground">{contribution.note || contributionDate(contribution.createdAt)}</span></span><span className="shrink-0 text-sm font-extrabold">{money(contribution.amount)}</span></div>)}{!monthlyContributions.length && <p className="rounded-xl bg-secondary/60 px-3.5 py-4 text-sm text-muted-foreground">Nenhum aporte foi registrado neste mês.</p>}</div></section>
                     <div className="flex gap-2 border-t border-border p-3"><Button variant="outline" size="sm" className="flex-1" onClick={() => { setAlertsOpen(false); navigate(contextualHref("/notificacoes")); }}>Ver alertas</Button><Button size="sm" className="flex-1" onClick={() => { setAlertsOpen(false); navigate(contextualHref("/metas")); }}>Abrir metas</Button></div>

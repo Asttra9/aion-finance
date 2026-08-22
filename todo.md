@@ -251,7 +251,7 @@
 - [x] Coletar na ativação PJ/MEI razão social, CNPJ, segmento, faixa de faturamento e método de controle financeiro.
 - [x] Cobrir convite, ativação, expiração, revogação, uso único e logout com testes automatizados.
 - [x] Validar typecheck, testes, build e telas públicas de ativação antes do checkpoint.
-- [ ] Salvar checkpoint da entrega de logout, convites e ativação de contas.
+- [x] Salvar checkpoint da entrega de logout, convites e ativação de contas (`5bc79410`).
 
 ## Notificações personalizadas
 
@@ -262,3 +262,18 @@
 ## Prioridade atual — autenticação
 
 - [x] Concluir a validação final do login, logout e ativação de conta por convite antes de iniciar notificações personalizadas.
+
+## Solicitação pública de conta com aprovação
+
+- [x] Definir o fluxo de solicitação pública por e-mail e senha, com status pendente e regras de revisão.
+- [x] Manter as solicitações de conta em estrutura independente da carteira até a aprovação.
+- [x] Permitir que o solicitante escolha o Consultor Aion responsável, restringindo a decisão a esse consultor.
+- [x] Coletar a jornada desejada — Pessoal/Família ou MEI/Microempresa — junto ao nome, e-mail e senha da solicitação.
+- [x] Ativar, após aprovação, a conta com o hash da senha enviado na solicitação, sem sessão anterior à decisão.
+- [x] Permitir nova solicitação após recusa e impedir duplicidades enquanto houver pedido pendente para o e-mail.
+- [x] Exibir a solicitação em fila interna e no sino do Consultor Aion selecionado, com ações auditáveis de aprovar ou recusar.
+- [x] Identificar a fila de análise e decisão como Aion — Moderação.
+- [x] Criar armazenamento seguro para solicitações de conta, incluindo hash de senha e prevenção de duplicidade.
+- [x] Criar uma tela pública de solicitação de conta com confirmação de recebimento.
+- [x] Criar uma fila consultiva para aprovar ou recusar solicitações de conta sem liberar acesso antes da decisão.
+- [ ] Cobrir, validar e salvar checkpoint do fluxo de solicitação e aprovação de conta.
