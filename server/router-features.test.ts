@@ -254,6 +254,12 @@ describe("solicitações de conta e Aion — Moderação", () => {
     const caller = appRouter.createCaller(createConsultorContext());
     await expect(caller.moderation.decideRequest({ requestId: 91, decision: "recusar" })).rejects.toMatchObject({ code: "CONFLICT" });
   });
+
+  it("bloqueia a aprovação quando o e-mail já possui cadastro ativo", async () => {
+    dbMocks.decideAccountAccessRequest.mockResolvedValue({ state: "conta_existente" });
+    const caller = appRouter.createCaller(createConsultorContext());
+    await expect(caller.moderation.decideRequest({ requestId: 91, decision: "aprovar" })).rejects.toMatchObject({ code: "CONFLICT" });
+  });
 });
 
 describe("notifications.generateDueAlerts", () => {

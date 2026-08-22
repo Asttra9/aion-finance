@@ -277,4 +277,5 @@
 - [x] Criar uma tela pública de solicitação de conta com confirmação de recebimento.
 - [x] Criar uma fila consultiva para aprovar ou recusar solicitações de conta sem liberar acesso antes da decisão.
 - [x] Cobrir, validar e salvar checkpoint do fluxo de solicitação e aprovação de conta (`a48cc079`).
-- [x] Revalidar e salvar checkpoint após restringir a lista pública de consultores ao nome e identificador.
+- [x] Revalidar e salvar checkpoint após restringir a lista pública de consultores ao nome e identificador (`fafeaa34`).
+- [x] Validar e salvar checkpoint da proteção contra criação de cliente duplicado pelo mesmo e-mail.

@@ -359,14 +359,15 @@ export async function createAccountAccessRequest(input: {
   if (!db) throw new Error("Banco de dados indisponível.");
   const email = input.email.trim().toLowerCase();
 
-  const [consultor, existingUser, pendingRequest] = await Promise.all([
+  const [consultor, existingUser, existingClient, pendingRequest] = await Promise.all([
     db.select({ id: users.id }).from(users).where(and(eq(users.id, input.consultorId), inArray(users.role, ["consultor_aion", "admin"]))).limit(1),
     db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1),
+    db.select({ id: clients.id }).from(clients).where(eq(clients.email, email)).limit(1),
     db.select({ id: accountAccessRequests.id }).from(accountAccessRequests).where(eq(accountAccessRequests.pendingEmail, email)).limit(1),
   ]);
 
   if (!consultor[0]) return { state: "consultor_invalido" as const };
-  if (existingUser[0]) return { state: "conta_existente" as const };
+  if (existingUser[0] || existingClient[0]) return { state: "conta_existente" as const };
   if (pendingRequest[0]) return { state: "pendente" as const };
 
   try {
@@ -429,8 +430,11 @@ export async function decideAccountAccessRequest(input: {
       return { state: "recusada" as const };
     }
 
-    const existingUser = await tx.select({ id: users.id }).from(users).where(eq(users.email, request.email)).limit(1);
-    if (existingUser[0]) return { state: "conta_existente" as const };
+    const [existingUser, existingClient] = await Promise.all([
+      tx.select({ id: users.id }).from(users).where(eq(users.email, request.email)).limit(1),
+      tx.select({ id: clients.id }).from(clients).where(eq(clients.email, request.email)).limit(1),
+    ]);
+    if (existingUser[0] || existingClient[0]) return { state: "conta_existente" as const };
 
     const clientResult = await tx.insert(clients).values({
       consultorId: input.consultorId,
