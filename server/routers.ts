@@ -179,7 +179,10 @@ export const appRouter = router({
         }
         return { success: true } as const;
       }),
-    availableConsultants: publicProcedure.query(() => db.getAvailableConsultants()),
+    availableConsultants: publicProcedure.query(async () => {
+      const consultants = await db.getAvailableConsultants();
+      return consultants.map((consultant) => ({ id: consultant.id, name: consultant.name ?? "Consultor Aion" }));
+    }),
     requestAccount: publicProcedure
       .input(z.object({
         name: z.string().trim().min(2).max(255),

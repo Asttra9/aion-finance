@@ -200,7 +200,7 @@ describe("solicitações de conta e Aion — Moderação", () => {
 
   it("lista apenas consultores disponíveis no cadastro público", async () => {
     const caller = appRouter.createCaller(createClientContext());
-    await expect(caller.auth.availableConsultants()).resolves.toEqual([{ id: 11, name: "Consultor Aion", email: "consultor@example.com" }]);
+    await expect(caller.auth.availableConsultants()).resolves.toEqual([{ id: 11, name: "Consultor Aion" }]);
   });
 
   it("recebe pedido com senha protegida e não expõe o estado de duplicidade", async () => {

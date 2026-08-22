@@ -276,4 +276,5 @@
 - [x] Criar armazenamento seguro para solicitações de conta, incluindo hash de senha e prevenção de duplicidade.
 - [x] Criar uma tela pública de solicitação de conta com confirmação de recebimento.
 - [x] Criar uma fila consultiva para aprovar ou recusar solicitações de conta sem liberar acesso antes da decisão.
-- [ ] Cobrir, validar e salvar checkpoint do fluxo de solicitação e aprovação de conta.
+- [x] Cobrir, validar e salvar checkpoint do fluxo de solicitação e aprovação de conta (`a48cc079`).
+- [x] Revalidar e salvar checkpoint após restringir a lista pública de consultores ao nome e identificador.
